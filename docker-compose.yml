@@ -1,13 +1,4 @@
 services:
-  downtify:
-    image: henriquesebastiao/downtify:latest
-    container_name: downtify
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./downloads:/downloads
-    restart: unless-stopped
-
   hera:
     build: .
     container_name: hera
@@ -16,12 +7,17 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - LASTFM_API_KEY=
-      - LASTFM_USERNAME=
       - DOWNTIFY_API_URL=http://downtify:8000
       - MUSIC_DOWNLOAD_DIR=/music/downloads
       - APP_CONFIG_DIR=/config
     volumes:
-      - ./downloads:/music/downloads
-      - ./config:/config
+      - /DATA/Media/Music/hera-downloads:/music/downloads
+      - /DATA/AppData/hera-music/config:/config
+    restart: unless-stopped
+
+  downtify:
+    image: henriquesebastiao/downtify:latest
+    container_name: hera-downtify
+    volumes:
+      - /DATA/Media/Music/hera-downloads:/downloads
     restart: unless-stopped
