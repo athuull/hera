@@ -6,9 +6,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -20,22 +20,24 @@ public class ProgressWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        sessions.add(session);
+        WebSocketSession decoratedSession = new ConcurrentWebSocketSessionDecorator(session, 10000, 65536);
+        sessions.add(decoratedSession);
         log.info("Frontend WebSocket connected: {} (total: {})", session.getId(), sessions.size());
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        sessions.remove(session);
+        sessions.removeIf(s -> s.getId().equals(session.getId()));
         log.info("Frontend WebSocket disconnected: {} (total: {})", session.getId(), sessions.size());
     }
 
     public void broadcast(String message) {
+        TextMessage textMessage = new TextMessage(message);
         for (WebSocketSession session : sessions) {
             if (session.isOpen()) {
                 try {
-                    session.sendMessage(new TextMessage(message));
-                } catch (IOException e) {
+                    session.sendMessage(textMessage);
+                } catch (Exception e) {
                     log.error("Failed to broadcast to {}: {}", session.getId(), e.getMessage());
                 }
             }

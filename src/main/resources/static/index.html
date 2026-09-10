@@ -4,117 +4,449 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>hera</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #0e1015;
+            --surface: #14171f;
+            --surface-elevated: #1a1e29;
+            --border: #262a36;
+            --border-focus: #4e5569;
+            --text: #e2e5ec;
+            --text-muted: #828a9c;
+            --text-dim: #545b6d;
+            --btn-bg: #1c202b;
+            --btn-border: #2d3345;
+            --btn-hover: #262c3c;
+            --btn-active: #31384c;
+            --pre-bg: #090a0d;
+            --status-ok: #34d399;
+            --status-warn: #fbbf24;
+            --status-err: #f87171;
+            --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, Monaco, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            font-family: monospace;
-            font-size: 18px;
-            background: #f0f0f0;
-            color: #000;
-            margin: 20px;
-            line-height: 1.5;
-            text-transform: lowercase; /* forces all text to lowercase */
+            font-family: var(--font-mono);
+            font-size: 14px;
+            background: var(--bg);
+            color: var(--text);
+            padding: 24px;
+            line-height: 1.6;
+            text-transform: lowercase;
+            max-width: 1200px;
+            margin: 0 auto;
         }
+
+        /* typography */
         h1, h2, h3 {
-            font-weight: bold;
-            margin-bottom: 10px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #ffffff;
         }
+
+        h1 {
+            font-size: 22px;
+            display: inline-block;
+        }
+
+        h2 {
+            font-size: 15px;
+            margin-bottom: 12px;
+            color: #f0f2f7;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        h2::before {
+            content: "::";
+            color: var(--text-dim);
+            font-weight: normal;
+        }
+
         hr {
             border: 0;
-            border-top: 2px solid #000;
-            margin: 20px 0;
+            border-top: 1px solid var(--border);
+            margin: 24px 0;
         }
+
+        /* header & status */
+        .header-bar {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .status-bar {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .status-pill {
+            font-weight: 600;
+        }
+
+        .status-pill.connected { color: var(--status-ok); }
+        .status-pill.disconnected { color: var(--status-err); }
+        .status-pill.connecting { color: var(--status-warn); }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* forms and controls */
+        input, select, button {
+            font-family: var(--font-mono);
+            font-size: 13.5px;
+            border: 1px solid var(--btn-border);
+            background: var(--surface);
+            color: var(--text);
+            padding: 7px 12px;
+            text-transform: lowercase;
+            border-radius: 4px;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 1px var(--border-focus);
+            background: var(--surface-elevated);
+        }
+
+        button {
+            cursor: pointer;
+            background: var(--btn-bg);
+            border: 1px solid var(--btn-border);
+            font-weight: 600;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--btn-hover);
+            border-color: var(--border-focus);
+            color: #ffffff;
+        }
+
+        button:active:not(:disabled) {
+            background: var(--btn-active);
+            transform: translateY(1px);
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            accent-color: #6366f1;
+            cursor: pointer;
+            vertical-align: middle;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* settings details */
+        details {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px 16px;
+        }
+
+        details[open] {
+            padding-bottom: 16px;
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text);
+            user-select: none;
+            outline: none;
+        }
+
+        summary:hover {
+            color: #ffffff;
+        }
+
+        .settings-content {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed var(--border);
+        }
+
+        fieldset {
+            border: 0;
+            padding: 0;
+        }
+
+        .setting-row {
+            margin-bottom: 14px;
+        }
+
+        .setting-row label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-muted);
+            font-size: 12.5px;
+        }
+
+        .setting-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* search controls */
+        .search-panel {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .search-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* results table */
+        .results-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid #000;
-            padding: 8px;
             text-align: left;
-            vertical-align: top;
+            font-size: 13px;
         }
-        input, select, button {
-            font-family: monospace;
-            font-size: 18px;
-            border: 1px solid #000;
-            background: #fff;
-            padding: 4px;
-            text-transform: lowercase;
+
+        th, td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
         }
-        button {
-            cursor: pointer;
-            background: #ddd;
+
+        th {
+            background: var(--surface-elevated);
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-focus);
         }
-        button:hover {
-            background: #ccc;
+
+        tr:last-child td {
+            border-bottom: 0;
         }
-        .hidden {
-            display: none;
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.025);
         }
+
+        .tag-pill {
+            font-size: 11.5px;
+            padding: 2px 6px;
+            background: var(--btn-bg);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text-muted);
+        }
+
+        /* progress log terminal */
         pre {
-            background: #e0e0e0;
-            border: 1px solid #000;
-            padding: 10px;
+            background: var(--pre-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px;
             white-space: pre-wrap;
             word-wrap: break-word;
-            max-height: 300px;
+            max-height: 280px;
+            overflow-y: auto;
+            color: #abb2bf;
+            font-size: 12.5px;
+            line-height: 1.6;
+        }
+
+        pre::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        pre::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        pre::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        /* library */
+        .library-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .library-list-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            max-height: 320px;
             overflow-y: auto;
         }
-        a {
-            color: blue;
-            text-decoration: underline;
+
+        .library-list-box ul {
+            list-style: none;
         }
-        .status-bar {
+
+        .library-list-box li {
+            padding: 6px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .library-list-box li::before {
+            content: ">";
+            color: var(--text-dim);
             font-weight: bold;
-            margin-bottom: 10px;
+        }
+
+        .library-list-box li:last-child {
+            border-bottom: 0;
+        }
+
+        /* toast notice */
+        #status-text {
+            margin-top: 14px;
+            font-size: 13px;
+            color: var(--status-ok);
         }
     </style>
 </head>
 <body>
 
-<h1>hera</h1>
-<div class="status-bar">ws: <span id="ws-text">connecting...</span></div>
+<header class="header-bar">
+    <div>
+        <h1>hera</h1>
+        <span style="color: var(--text-dim); margin-left: 8px;">// music recommendations &amp; downloader</span>
+    </div>
+    <div class="header-actions">
+        <div class="status-bar">ws: <span id="ws-text" class="status-pill connecting">[connecting...]</span></div>
+        <button onclick="triggerSchedule()" title="trigger scheduled auto-download right now">[auto-download now]</button>
+    </div>
+</header>
 
 <hr>
 
 <!-- settings -->
-<details>
-    <summary><b>settings</b></summary>
-    <div style="margin-top: 10px; padding: 10px; border: 1px solid #000; background: #fff;">
+<details id="settings-details">
+    <summary>settings</summary>
+    <div class="settings-content">
         <fieldset>
-            <legend>configuration</legend>
-            <label>last.fm api key:</label><br>
-            <input type="password" id="set-lastfm-key" style="width: 100%; margin-bottom: 10px;"><br>
+            <div class="setting-row">
+                <label>last.fm api key:</label>
+                <input type="password" id="set-lastfm-key" style="width: 100%; max-width: 500px;" placeholder="last.fm api key">
+            </div>
 
-            <label>last.fm username:</label><br>
-            <input type="text" id="set-lastfm-user" style="width: 100%; margin-bottom: 10px;"><br>
+            <div class="setting-row">
+                <label>last.fm username:</label>
+                <input type="text" id="set-lastfm-user" style="width: 100%; max-width: 320px;" placeholder="username">
+            </div>
 
-            <label>max daily downloads:</label>
-            <input type="number" id="set-max-downloads" min="1" max="500" style="width: 80px; margin-bottom: 10px;"><br>
+            <div class="setting-row">
+                <label>scheduled daily limit (nightly):</label>
+                <input type="number" id="set-max-downloads" min="1" max="500" style="width: 90px;">
+            </div>
 
-            <label>format:</label>
-            <select id="set-format">
-                <option value="mp3">mp3</option>
-                <option value="m4a">m4a</option>
-                <option value="opus">opus</option>
-            </select>
+            <div class="setting-row">
+                <label>auto-download strategy:</label>
+                <select id="set-strategy">
+                    <option value="HYBRID">hybrid (my profile)</option>
+                    <option value="USER_PERSONALIZED">my top artists</option>
+                    <option value="NOW_LISTENING">now listening</option>
+                    <option value="GENRE_BASED">my top genres</option>
+                </select>
+            </div>
 
-            <label>bitrate:</label>
-            <select id="set-bitrate">
-                <option value="320">320</option>
-                <option value="256">256</option>
-                <option value="192">192</option>
-                <option value="128">128</option>
-            </select><br><br>
+            <div class="setting-row">
+                <label>auto-download time (24h):</label>
+                <select id="set-cron-hour"></select>
+                <span style="margin: 0 4px;">:</span>
+                <select id="set-cron-minute"></select>
+            </div>
 
-            <input type="checkbox" id="set-organize">
-            <label for="set-organize">organize by artist</label><br>
+            <div class="setting-row">
+                <label>format &amp; bitrate:</label>
+                <select id="set-format">
+                    <option value="mp3">mp3</option>
+                    <option value="flac">flac</option>
+                    <option value="m4a">m4a</option>
+                    <option value="opus">opus</option>
+                </select>
+                <select id="set-bitrate" style="margin-left: 6px;">
+                    <option value="320">320</option>
+                    <option value="256">256</option>
+                    <option value="192">192</option>
+                    <option value="128">128</option>
+                </select>
+            </div>
 
-            <input type="checkbox" id="set-lyrics">
-            <label for="set-lyrics">download lyrics</label><br><br>
+            <div style="margin-top: 14px;">
+                <label class="setting-toggle" for="set-organize">
+                    <input type="checkbox" id="set-organize">
+                    <span>organize by artist</span>
+                </label>
 
-            <button onclick="saveSettings()">save settings</button>
+                <label class="setting-toggle" for="set-lyrics">
+                    <input type="checkbox" id="set-lyrics">
+                    <span>download lyrics (.lrc)</span>
+                </label>
+            </div>
+
+            <div style="margin-top: 16px;">
+                <button onclick="saveSettings()">[save settings]</button>
+                <button onclick="triggerCleanup()" style="margin-left: 8px;">[cleanup webm]</button>
+            </div>
         </fieldset>
     </div>
 </details>
@@ -123,41 +455,45 @@
 
 <!-- search -->
 <h2>find music</h2>
-<div>
-    <label>strategy:</label>
-    <select id="strategy" onchange="toggleSeedInput()">
-        <option value="HYBRID">hybrid (my profile)</option>
-        <option value="USER_PERSONALIZED">my top artists</option>
-        <option value="NOW_LISTENING">now listening</option>
-        <option value="GENRE_BASED">my top genres</option>
-        <option value="ARTIST_SIMILARITY">by artist</option>
-        <option value="TRACK_SIMILARITY">by track</option>
-        <option value="TAG_BASED">by tag</option>
-    </select>
-
-    <label>limit:</label>
-    <input type="number" id="limit" value="20" min="1" max="100" style="width: 60px;">
-
-    <div id="seed-group" class="hidden" style="margin-top: 10px;">
-        <label id="seed-label">search term:</label><br>
-        <input type="text" id="seed" style="width: 100%;">
+<div class="search-panel">
+    <div class="search-group">
+        <label>strategy:</label>
+        <select id="strategy" onchange="toggleSeedInput()">
+            <option value="HYBRID">hybrid (my profile)</option>
+            <option value="USER_PERSONALIZED">my top artists</option>
+            <option value="NOW_LISTENING">now listening</option>
+            <option value="GENRE_BASED">my top genres</option>
+            <option value="ARTIST_SIMILARITY">by artist</option>
+            <option value="TRACK_SIMILARITY">by track</option>
+            <option value="TAG_BASED">by tag</option>
+        </select>
     </div>
 
-    <br><br>
-    <button id="search-btn" onclick="searchRecommendations()">search</button>
+    <div class="search-group">
+        <label>limit:</label>
+        <input type="number" id="limit" value="20" min="1" max="100" style="width: 70px;">
+    </div>
+
+    <div id="seed-group" class="search-group hidden">
+        <label id="seed-label">search term:</label>
+        <input type="text" id="seed" style="width: 280px;">
+    </div>
+
+    <button id="search-btn" onclick="searchRecommendations()">[search]</button>
 </div>
 
 <hr>
 
 <!-- results -->
 <h2>recommendations</h2>
-<div id="results-actions" class="hidden" style="margin-bottom: 10px;">
-    <button onclick="selectAll(true)">select all</button>
-    <button onclick="selectAll(false)">deselect all</button>
-    <button onclick="downloadSelected()">download selected</button>
+<div id="results-actions" class="results-toolbar hidden">
+    <button onclick="selectAll(true)">[select all]</button>
+    <button onclick="selectAll(false)">[deselect all]</button>
+    <button id="download-selected-btn" onclick="downloadSelected()">[download selected]</button>
+    <span id="selected-count-label" style="color: var(--text-muted); margin-left: 8px;"></span>
 </div>
 <div id="results-table">
-    <p>no results yet.</p>
+    <p style="color: var(--text-muted);">no results yet.</p>
 </div>
 
 <hr>
@@ -165,37 +501,96 @@
 <!-- progress -->
 <h2>download progress</h2>
 <pre id="progress-feed">no active downloads.</pre>
-<button onclick="clearProgress()">clear log</button>
+<div style="margin-top: 10px;">
+    <button onclick="clearProgress()">[clear log]</button>
+</div>
 
 <hr>
 
 <!-- library -->
-<h2>library</h2>
-<button onclick="refreshLibrary()">refresh library</button>
-<div id="library-list" style="margin-top: 10px;">
-    <p>click refresh to load.</p>
+<h2>library <span id="library-count" style="color: var(--text-dim); font-size: 13px;"></span></h2>
+<div class="library-toolbar">
+    <button onclick="refreshLibrary()">[refresh library]</button>
+    <input type="text" id="library-filter" placeholder="filter tracks..." oninput="filterLibrary()" style="width: 220px;">
+</div>
+<div id="library-list" class="library-list-box">
+    <p style="color: var(--text-muted);">click refresh to load.</p>
 </div>
 
-<hr>
 <div id="status-text"></div>
 
 <script>
     let recommendations = [];
+    let libraryData = [];
     let ws = null;
     let lastProgressLog = {};
+
+    // ─── populate time dropdowns ───
+    function populateTimeDropdowns() {
+        const hourSelect = document.getElementById('set-cron-hour');
+        const minuteSelect = document.getElementById('set-cron-minute');
+        hourSelect.innerHTML = '';
+        minuteSelect.innerHTML = '';
+
+        for (let i = 0; i < 24; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.text = i.toString().padStart(2, '0');
+            hourSelect.add(opt);
+        }
+
+        [0, 15, 30, 45].forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.text = m.toString().padStart(2, '0');
+            minuteSelect.add(opt);
+        });
+    }
+
+    // parse existing cron into hour/minute
+    function parseCron(cron) {
+        if (!cron) return { hour: 2, minute: 0 };
+        const parts = cron.trim().split(/\s+/);
+        if (parts.length >= 3) {
+            return {
+                minute: parseInt(parts[1]) || 0,
+                hour: parseInt(parts[2]) || 0
+            };
+        }
+        return { minute: 0, hour: 2 };
+    }
+
+    // build cron from hour/minute dropdowns
+    function buildCron() {
+        const hour = document.getElementById('set-cron-hour').value;
+        const minute = document.getElementById('set-cron-minute').value;
+        return `0 ${minute} ${hour} * * *`;
+    }
 
     // ─── websocket ───
     function connectWS() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws/progress`;
+        const wsElem = document.getElementById('ws-text');
+
         ws = new WebSocket(wsUrl);
 
-        ws.onopen = () => { document.getElementById('ws-text').innerText = 'connected'; };
+        ws.onopen = () => {
+            wsElem.className = 'status-pill connected';
+            wsElem.innerText = '[connected]';
+        };
+
         ws.onclose = () => {
-            document.getElementById('ws-text').innerText = 'disconnected';
+            wsElem.className = 'status-pill disconnected';
+            wsElem.innerText = '[disconnected]';
             setTimeout(connectWS, 3000);
         };
-        ws.onerror = () => { document.getElementById('ws-text').innerText = 'error'; };
+
+        ws.onerror = () => {
+            wsElem.className = 'status-pill disconnected';
+            wsElem.innerText = '[error]';
+        };
+
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
@@ -220,7 +615,6 @@
         const status = data.status || 'unknown';
         const progress = data.progress || 0;
 
-        // Throttle: Only log if status changed, or progress crossed a 10% threshold
         const lastLog = lastProgressLog[songName];
         if (!lastLog || lastLog.status !== status || Math.floor(progress / 10) > Math.floor(lastLog.progress / 10)) {
             logProgress(`[${status}] ${songName} (${Math.round(progress)}%)`);
@@ -230,7 +624,11 @@
 
     function logProgress(message) {
         const feed = document.getElementById('progress-feed');
-        feed.innerText = message + "\n" + feed.innerText;
+        if (feed.innerText === 'no active downloads.') {
+            feed.innerText = message;
+        } else {
+            feed.innerText = message + "\n" + feed.innerText;
+        }
     }
 
     function clearProgress() {
@@ -269,7 +667,7 @@
     async function searchRecommendations() {
         const strategy = document.getElementById('strategy').value;
         const seed = document.getElementById('seed').value.trim();
-        const limit = parseInt(document.getElementById('limit').value);
+        const limit = parseInt(document.getElementById('limit').value) || 20;
 
         const manualStrategies = ['ARTIST_SIMILARITY', 'TRACK_SIMILARITY', 'TAG_BASED'];
         if (manualStrategies.includes(strategy) && !seed) {
@@ -279,35 +677,40 @@
 
         const btn = document.getElementById('search-btn');
         btn.disabled = true;
-        btn.innerText = 'searching...';
+        btn.innerText = '[searching...]';
 
         try {
             const response = await fetch(buildSearchUrl(strategy, seed, limit));
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.message || `http ${response.status}`);
+            }
             recommendations = await response.json();
             renderResults(recommendations);
         } catch (e) {
             alert(`search failed: ${e.message}`);
         } finally {
             btn.disabled = false;
-            btn.innerText = 'search';
+            btn.innerText = '[search]';
         }
     }
 
     function buildSearchUrl(strategy, seed, limit) {
         switch (strategy) {
             case 'USER_PERSONALIZED':
-                return `/api/recommend/personal?username=${encodeURIComponent(seed)}&limit=${limit}`;
+                return `/api/recommend/personal?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
             case 'NOW_LISTENING':
-                return `/api/recommend/now?username=${encodeURIComponent(seed)}&limit=${limit}`;
+                return `/api/recommend/now?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
             case 'GENRE_BASED':
-                return `/api/recommend/genres?username=${encodeURIComponent(seed)}&limit=${limit}`;
+                return `/api/recommend/genres?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
             case 'HYBRID':
-                return `/api/recommend/hybrid?username=${encodeURIComponent(seed)}&limit=${limit}`;
+                return `/api/recommend/hybrid?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
             case 'TRACK_SIMILARITY':
-                const parts = seed.split(' - ');
-                if (parts.length < 2) { alert('format: artist - track'); throw new Error('invalid format'); }
-                return `/api/recommend/track?artist=${encodeURIComponent(parts[0].trim())}&track=${encodeURIComponent(parts[1].trim())}&limit=${limit}`;
+                const splitIdx = seed.indexOf(' - ');
+                if (splitIdx === -1) { alert('format: artist - track'); throw new Error('invalid format'); }
+                const artist = seed.substring(0, splitIdx).trim();
+                const track = seed.substring(splitIdx + 3).trim();
+                return `/api/recommend/track?artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&limit=${limit}`;
             case 'TAG_BASED':
                 return `/api/recommend/tag?tag=${encodeURIComponent(seed)}&limit=${limit}`;
             case 'ARTIST_SIMILARITY':
@@ -318,19 +721,20 @@
     }
 
     function renderResults(recs) {
-        const table = document.getElementById('results-table');
+        const tableContainer = document.getElementById('results-table');
+        const actions = document.getElementById('results-actions');
 
-        if (recs.length === 0) {
-            table.innerHTML = '<p>no recommendations found. check settings.</p>';
-            document.getElementById('results-actions').classList.add('hidden');
+        if (!recs || recs.length === 0) {
+            tableContainer.innerHTML = '<p style="color: var(--text-muted);">no recommendations found. check settings.</p>';
+            actions.classList.add('hidden');
             return;
         }
 
-        document.getElementById('results-actions').classList.remove('hidden');
+        actions.classList.remove('hidden');
 
-        let html = `<table>
+        let html = `<div class="table-container"><table>
             <thead><tr>
-                <th>dl?</th>
+                <th style="width: 40px; text-align: center;"><input type="checkbox" id="select-all-header" onchange="selectAll(this.checked)"></th>
                 <th>artist</th>
                 <th>track</th>
                 <th>source</th>
@@ -339,27 +743,35 @@
             </tr></thead><tbody>`;
 
         recs.forEach((r, i) => {
-            const pct = Math.round(r.matchScore * 100);
-            const listeners = r.listenerCount.toLocaleString();
-            const source = r.sourceArtist || '';
+            const track = r.track || {};
+            const pct = Math.round((r.matchScore || 0.5) * 100);
+            const listeners = (r.listenerCount || 0).toLocaleString();
+            const source = r.sourceArtist || 'algorithm';
             html += `<tr>
-                <td><input type="checkbox" class="track-check" data-index="${i}"></td>
-                <td>${escapeHtml(r.track.artist)}</td>
-                <td>${escapeHtml(r.track.title)}</td>
-                <td>${escapeHtml(source)}</td>
+                <td style="text-align: center;"><input type="checkbox" class="track-check" data-index="${i}" onchange="updateSelectedCount()"></td>
+                <td style="font-weight: 600; color: #fff;">${escapeHtml(track.artist)}</td>
+                <td>${escapeHtml(track.title)}</td>
+                <td><span class="tag-pill">${escapeHtml(source)}</span></td>
                 <td>${pct}%</td>
-                <td>${listeners}</td>
+                <td style="color: var(--text-muted);">${listeners}</td>
             </tr>`;
         });
-        html += '</tbody></table>';
-        table.innerHTML = html;
+        html += '</tbody></table></div>';
+        tableContainer.innerHTML = html;
+        updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+        const count = document.querySelectorAll('.track-check:checked').length;
+        const label = document.getElementById('selected-count-label');
+        if (label) label.innerText = `(${count} selected)`;
     }
 
     async function downloadSelected() {
         const selected = [];
         document.querySelectorAll('.track-check:checked').forEach(cb => {
             const idx = parseInt(cb.dataset.index);
-            if (recommendations[idx]) {
+            if (recommendations[idx] && recommendations[idx].track) {
                 selected.push({
                     artist: recommendations[idx].track.artist,
                     title: recommendations[idx].track.title,
@@ -377,7 +789,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tracks: selected })
             });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) throw new Error(`http ${response.status}`);
             logProgress(`started download of ${selected.length} tracks...`);
         } catch (e) {
             alert(`download failed: ${e.message}`);
@@ -386,30 +798,61 @@
 
     async function refreshLibrary() {
         const list = document.getElementById('library-list');
-        list.innerHTML = '<p>loading...</p>';
+        list.innerHTML = '<p style="color: var(--text-muted);">loading...</p>';
         try {
             const response = await fetch('/api/library');
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const files = await response.json();
-            renderLibrary(files);
+            if (!response.ok) throw new Error(`http ${response.status}`);
+            libraryData = await response.json();
+            const countElem = document.getElementById('library-count');
+            if (countElem) countElem.innerText = `(${libraryData.length} tracks)`;
+            renderLibrary(libraryData);
         } catch (e) {
-            list.innerHTML = `<p>error: ${e.message}</p>`;
+            list.innerHTML = `<p style="color: var(--status-err);">error: ${escapeHtml(e.message)}</p>`;
         }
     }
 
     function renderLibrary(files) {
         const list = document.getElementById('library-list');
-        if (files.length === 0) {
-            list.innerHTML = '<p>no files downloaded yet.</p>';
+        if (!files || files.length === 0) {
+            list.innerHTML = '<p style="color: var(--text-muted);">no files downloaded yet.</p>';
             return;
         }
         let html = '<ul>';
         files.forEach(f => {
-            const name = f.split('/').pop();
+            const name = f.replace(/\\/g, '/').split('/').pop();
             html += `<li>${escapeHtml(name)}</li>`;
         });
         html += '</ul>';
         list.innerHTML = html;
+    }
+
+    function filterLibrary() {
+        const q = (document.getElementById('library-filter').value || '').toLowerCase();
+        const filtered = libraryData.filter(f => f.toLowerCase().includes(q));
+        renderLibrary(filtered);
+    }
+
+    async function triggerSchedule() {
+        try {
+            const res = await fetch('/api/schedule/trigger', { method: 'POST' });
+            if (!res.ok) throw new Error(`http ${res.status}`);
+            logProgress('system: triggered scheduled download pipeline');
+        } catch (e) {
+            alert(`sync trigger failed: ${e.message}`);
+        }
+    }
+
+    async function triggerCleanup() {
+        try {
+            logProgress('system: starting .webm to .mp3 format cleanup...');
+            const res = await fetch('/api/cleanup', { method: 'POST' });
+            if (!res.ok) throw new Error(`http ${res.status}`);
+            const converted = await res.json();
+            logProgress(`system: cleanup finished. converted ${converted.length} files`);
+            refreshLibrary();
+        } catch (e) {
+            alert(`cleanup failed: ${e.message}`);
+        }
     }
 
     // ─── settings ───
@@ -422,6 +865,12 @@
             document.getElementById('set-lastfm-key').value = s.lastfmApiKey || '';
             document.getElementById('set-lastfm-user').value = s.lastfmUsername || '';
             document.getElementById('set-max-downloads').value = s.maxDailyDownloads || 50;
+            document.getElementById('set-strategy').value = s.scheduledStrategy || 'HYBRID';
+
+            const time = parseCron(s.cronSchedule || '0 0 2 * * *');
+            document.getElementById('set-cron-hour').value = time.hour;
+            document.getElementById('set-cron-minute').value = time.minute;
+
             document.getElementById('set-format').value = s.format || 'mp3';
             document.getElementById('set-bitrate').value = s.bitrate || '320';
             document.getElementById('set-organize').checked = s.organizeByArtist || false;
@@ -435,7 +884,9 @@
         const s = {
             lastfmApiKey: document.getElementById('set-lastfm-key').value.trim(),
             lastfmUsername: document.getElementById('set-lastfm-user').value.trim(),
-            maxDailyDownloads: parseInt(document.getElementById('set-max-downloads').value),
+            maxDailyDownloads: parseInt(document.getElementById('set-max-downloads').value) || 50,
+            scheduledStrategy: document.getElementById('set-strategy').value,
+            cronSchedule: buildCron(),
             format: document.getElementById('set-format').value,
             bitrate: document.getElementById('set-bitrate').value,
             organizeByArtist: document.getElementById('set-organize').checked,
@@ -449,7 +900,9 @@
                 body: JSON.stringify(s)
             });
             if (!response.ok) throw new Error('failed to save settings');
-            alert('settings saved!');
+            const statusElem = document.getElementById('status-text');
+            statusElem.innerText = 'settings saved and applied.';
+            setTimeout(() => { statusElem.innerText = ''; }, 3500);
         } catch (e) {
             alert(`error saving settings: ${e.message}`);
         }
@@ -458,6 +911,9 @@
     // ─── ui helpers ───
     function selectAll(checked) {
         document.querySelectorAll('.track-check').forEach(cb => cb.checked = checked);
+        const headerCb = document.getElementById('select-all-header');
+        if (headerCb) headerCb.checked = checked;
+        updateSelectedCount();
     }
 
     function escapeHtml(str) {
@@ -468,9 +924,11 @@
 
     // ─── init ───
     window.addEventListener('DOMContentLoaded', () => {
+        populateTimeDropdowns();
         connectWS();
         toggleSeedInput();
         openSettings();
+        refreshLibrary();
     });
 </script>
 

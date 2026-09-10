@@ -1,19 +1,26 @@
 package com.athuull.hera.controller;
 
-import com.athuull.hera.model.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.athuull.hera.client.DowntifyClient;
-import com.athuull.hera.client.LastFmClient;
-import com.athuull.hera.model.*;
+import com.athuull.hera.model.AppSettings;
+import com.athuull.hera.model.DownloadResult;
+import com.athuull.hera.model.DownloadTracksRequest;
+import com.athuull.hera.model.Recommendation;
+import com.athuull.hera.model.RecommendationRequest;
+import com.athuull.hera.model.RecommendationStrategy;
 import com.athuull.hera.service.DownloadService;
 import com.athuull.hera.service.FormatCleanupService;
 import com.athuull.hera.service.OrchestratorService;
 import com.athuull.hera.service.RecommendationService;
 import com.athuull.hera.service.SettingsService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,65 +31,78 @@ public class MusicController {
     private final OrchestratorService orchestrator;
     private final DownloadService downloadService;
     private final RecommendationService recommendationService;
-    private final LastFmClient lastFmClient;
     private final DowntifyClient downtifyClient;
     private final FormatCleanupService formatCleanupService;
     private final SettingsService settingsService;
+    private final TaskExecutor taskExecutor;
 
     @Autowired
     public MusicController(OrchestratorService orchestrator,
                            DownloadService downloadService,
                            RecommendationService recommendationService,
-                           LastFmClient lastFmClient,
                            DowntifyClient downtifyClient,
                            FormatCleanupService formatCleanupService,
-                           SettingsService settingsService) {
+                           SettingsService settingsService,
+                           @Qualifier("heraTaskExecutor") TaskExecutor taskExecutor) {
         this.orchestrator = orchestrator;
         this.downloadService = downloadService;
         this.recommendationService = recommendationService;
-        this.lastFmClient = lastFmClient;
         this.downtifyClient = downtifyClient;
         this.formatCleanupService = formatCleanupService;
         this.settingsService = settingsService;
+        this.taskExecutor = taskExecutor;
     }
 
     // ─── Personalized Recommendations ───
 
     @GetMapping("/recommend/personal")
     public ResponseEntity<List<Recommendation>> recommendPersonalized(
-            @RequestParam String username,
+            @RequestParam(required = false) String username,
             @RequestParam(defaultValue = "overall") String period,
             @RequestParam(defaultValue = "30") int limit) {
         return ResponseEntity.ok(recommendationService.getRecommendations(
-                RecommendationRequest.builder().strategy(RecommendationStrategy.USER_PERSONALIZED)
-                        .lastfmUsername(username).period(period).limit(limit).build()));
+                RecommendationRequest.builder()
+                        .strategy(RecommendationStrategy.USER_PERSONALIZED)
+                        .lastfmUsername(username)
+                        .period(period)
+                        .limit(limit)
+                        .build()));
     }
 
     @GetMapping("/recommend/now")
     public ResponseEntity<List<Recommendation>> recommendNowListening(
-            @RequestParam String username,
+            @RequestParam(required = false) String username,
             @RequestParam(defaultValue = "20") int limit) {
         return ResponseEntity.ok(recommendationService.getRecommendations(
-                RecommendationRequest.builder().strategy(RecommendationStrategy.NOW_LISTENING)
-                        .lastfmUsername(username).limit(limit).build()));
+                RecommendationRequest.builder()
+                        .strategy(RecommendationStrategy.NOW_LISTENING)
+                        .lastfmUsername(username)
+                        .limit(limit)
+                        .build()));
     }
 
     @GetMapping("/recommend/genres")
     public ResponseEntity<List<Recommendation>> recommendByMyGenres(
-            @RequestParam String username,
+            @RequestParam(required = false) String username,
             @RequestParam(defaultValue = "25") int limit) {
         return ResponseEntity.ok(recommendationService.getRecommendations(
-                RecommendationRequest.builder().strategy(RecommendationStrategy.GENRE_BASED)
-                        .lastfmUsername(username).limit(limit).build()));
+                RecommendationRequest.builder()
+                        .strategy(RecommendationStrategy.GENRE_BASED)
+                        .lastfmUsername(username)
+                        .limit(limit)
+                        .build()));
     }
 
     @GetMapping("/recommend/hybrid")
     public ResponseEntity<List<Recommendation>> recommendHybrid(
-            @RequestParam String username,
+            @RequestParam(required = false) String username,
             @RequestParam(defaultValue = "50") int limit) {
         return ResponseEntity.ok(recommendationService.getRecommendations(
-                RecommendationRequest.builder().strategy(RecommendationStrategy.HYBRID)
-                        .lastfmUsername(username).limit(limit).build()));
+                RecommendationRequest.builder()
+                        .strategy(RecommendationStrategy.HYBRID)
+                        .lastfmUsername(username)
+                        .limit(limit)
+                        .build()));
     }
 
     // ─── Manual Recommendations ───
@@ -100,8 +120,12 @@ public class MusicController {
             @RequestParam String track,
             @RequestParam(defaultValue = "20") int limit) {
         return ResponseEntity.ok(recommendationService.getRecommendations(
-                RecommendationRequest.builder().strategy(RecommendationStrategy.TRACK_SIMILARITY)
-                        .seedArtist(artist).seedTrack(track).limit(limit).build()));
+                RecommendationRequest.builder()
+                        .strategy(RecommendationStrategy.TRACK_SIMILARITY)
+                        .seedArtist(artist)
+                        .seedTrack(track)
+                        .limit(limit)
+                        .build()));
     }
 
     @GetMapping("/recommend/tag")
@@ -109,8 +133,11 @@ public class MusicController {
             @RequestParam String tag,
             @RequestParam(defaultValue = "20") int limit) {
         return ResponseEntity.ok(recommendationService.getRecommendations(
-                RecommendationRequest.builder().strategy(RecommendationStrategy.TAG_BASED)
-                        .tag(tag).limit(limit).build()));
+                RecommendationRequest.builder()
+                        .strategy(RecommendationStrategy.TAG_BASED)
+                        .tag(tag)
+                        .limit(limit)
+                        .build()));
     }
 
     // ─── Downloads ───
@@ -121,12 +148,15 @@ public class MusicController {
     }
 
     @PostMapping("/download/tracks")
-    public ResponseEntity<String> downloadTracks(@RequestBody DownloadTracksRequest request) {
+    public ResponseEntity<Map<String, Object>> downloadTracks(@RequestBody DownloadTracksRequest request) {
         if (request.getTracks() == null || request.getTracks().isEmpty()) {
-            return ResponseEntity.badRequest().body("No tracks provided");
+            return ResponseEntity.badRequest().body(Map.of("error", "No tracks provided"));
         }
-        new Thread(() -> downloadService.downloadBatch(request.getTracks())).start();
-        return ResponseEntity.ok("Download started for " + request.getTracks().size() + " tracks");
+        taskExecutor.execute(() -> downloadService.downloadBatch(request.getTracks()));
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("message", "Download queued for " + request.getTracks().size() + " tracks");
+        resp.put("count", request.getTracks().size());
+        return ResponseEntity.ok(resp);
     }
 
     @PostMapping("/download/url")
@@ -145,7 +175,8 @@ public class MusicController {
 
     @GetMapping("/library")
     public ResponseEntity<List<String>> library() {
-        return ResponseEntity.ok(downloadService.listDownloadedFiles());
+        List<String> files = downloadService.listDownloadedFiles();
+        return ResponseEntity.ok(files != null ? files : Collections.emptyList());
     }
 
     // ─── Format Cleanup ───
@@ -165,15 +196,21 @@ public class MusicController {
     @PostMapping("/settings")
     public ResponseEntity<AppSettings> updateSettings(@RequestBody AppSettings newSettings) {
         AppSettings updated = settingsService.updateSettings(newSettings);
-        new Thread(() -> downloadService.configureDowntify()).start();
+
+        // Push new audio settings to Downtify asynchronously
+        taskExecutor.execute(downloadService::configureDowntify);
+
+        // Reschedule the cron job with the new time
+        orchestrator.rescheduleCron(updated.getCronSchedule());
+
         return ResponseEntity.ok(updated);
     }
 
     // ─── Scheduler ───
 
     @PostMapping("/schedule/trigger")
-    public ResponseEntity<String> triggerSchedule() {
-        new Thread(() -> orchestrator.runScheduledPipeline()).start();
-        return ResponseEntity.ok("Pipeline triggered — check logs for progress");
+    public ResponseEntity<Map<String, String>> triggerSchedule() {
+        orchestrator.triggerScheduledPipelineAsync();
+        return ResponseEntity.ok(Map.of("message", "Pipeline triggered — check progress feed for live updates"));
     }
 }

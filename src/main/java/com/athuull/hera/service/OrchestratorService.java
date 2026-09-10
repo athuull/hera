@@ -8,37 +8,84 @@ import com.athuull.hera.model.Track;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 
 @Service
-public class OrchestratorService {
+public class OrchestratorService implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(OrchestratorService.class);
     private final RecommendationService recommendationService;
     private final DownloadService downloadService;
+    private final SettingsService settingsService;
+    private final TaskScheduler taskScheduler;
+    private final TaskExecutor taskExecutor;
+
+    private ScheduledFuture<?> scheduledFuture;
 
     @Autowired
-    public OrchestratorService(RecommendationService recommendationService, DownloadService downloadService) {
+    public OrchestratorService(RecommendationService recommendationService,
+                               DownloadService downloadService,
+                               SettingsService settingsService,
+                               TaskScheduler taskScheduler,
+                               @Qualifier("heraTaskExecutor") TaskExecutor taskExecutor) {
         this.recommendationService = recommendationService;
         this.downloadService = downloadService;
+        this.settingsService = settingsService;
+        this.taskScheduler = taskScheduler;
+        this.taskExecutor = taskExecutor;
+    }
+
+    @Override
+    public void run(ApplicationArguments args) {
+        String cron = settingsService.getSettings() != null ? settingsService.getSettings().getCronSchedule() : null;
+        if (cron != null && !cron.isBlank()) {
+            rescheduleCron(cron);
+        }
+    }
+
+    public synchronized void rescheduleCron(String cronExpression) {
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+            scheduledFuture = null;
+        }
+        if (cronExpression == null || cronExpression.isBlank()) {
+            log.info("No cron expression provided; nightly scheduler is disabled.");
+            return;
+        }
+        try {
+            CronTrigger trigger = new CronTrigger(cronExpression);
+            scheduledFuture = taskScheduler.schedule(this::scheduledRun, trigger);
+            log.info("Scheduled nightly pipeline with cron: {}", cronExpression);
+        } catch (Exception e) {
+            log.error("Invalid cron expression '{}': {}", cronExpression, e.getMessage());
+        }
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void onStartup() {
-        log.info("=== Music Downloader Starting ===");
+        log.info("=== Hera Music Downloader Starting ===");
         downloadService.configureDowntify();
         log.info("Ready. Scheduled downloads will run per cron schedule.");
     }
 
-    @Scheduled(cron = "${scheduler.cron}")
     public void scheduledRun() {
         runScheduledPipeline();
+    }
+
+    public void triggerScheduledPipelineAsync() {
+        taskExecutor.execute(this::runScheduledPipeline);
     }
 
     public void runScheduledPipeline() {

@@ -16,6 +16,7 @@ import java.io.IOException;
 public class SettingsService {
 
     private static final Logger log = LoggerFactory.getLogger(SettingsService.class);
+    private static final String SETTINGS_FILE = "settings.json";
     private final ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
     @Value("${app.config-dir:./}")
@@ -30,6 +31,9 @@ public class SettingsService {
     @Value("${scheduler.max-daily-downloads:50}")
     private int envMaxDownloads;
 
+    @Value("${scheduler.cron:0 0 2 * * *}")
+    private String envCron;
+
     @Value("${downtify.format:mp3}")
     private String envFormat;
 
@@ -39,10 +43,10 @@ public class SettingsService {
     @Value("${downtify.organize-by-artist:true}")
     private boolean envOrganize;
 
-    @Value("${downtify.download-lyrics:true}")
+    @Value("${downtify.download-lyrics:false}")
     private boolean envLyrics;
 
-    private AppSettings settings;
+    private volatile AppSettings settings;
     private File settingsFile;
 
     @PostConstruct
@@ -51,7 +55,7 @@ public class SettingsService {
         if (!dir.exists()) {
             dir.mkdirs();
         }
-        settingsFile = new File(dir, "settings.json");
+        settingsFile = new File(dir, SETTINGS_FILE);
 
         if (settingsFile.exists()) {
             try {
@@ -68,10 +72,17 @@ public class SettingsService {
     }
 
     private void createDefaults() {
-        settings = new AppSettings(
-                envApiKey, envUsername, envMaxDownloads,
-                envFormat, envBitrate, envOrganize, envLyrics
-        );
+        settings = AppSettings.builder()
+                .lastfmApiKey(envApiKey)
+                .lastfmUsername(envUsername)
+                .maxDailyDownloads(envMaxDownloads)
+                .cronSchedule(envCron)
+                .scheduledStrategy(com.athuull.hera.model.RecommendationStrategy.HYBRID)
+                .format(envFormat)
+                .bitrate(envBitrate)
+                .organizeByArtist(envOrganize)
+                .downloadLyrics(envLyrics)
+                .build();
         saveSettings();
     }
 
@@ -85,11 +96,30 @@ public class SettingsService {
         return this.settings;
     }
 
-    private void saveSettings() {
+    private synchronized void saveSettings() {
+        if (settingsFile == null) return;
+        File tempFile = new File(settingsFile.getParentFile(), SETTINGS_FILE + ".tmp");
         try {
-            mapper.writeValue(settingsFile, settings);
-        } catch (IOException e) {
-            log.error("Failed to save settings file: {}", e.getMessage());
+            mapper.writeValue(tempFile, settings);
+            if (!tempFile.renameTo(settingsFile)) {
+                java.nio.file.Files.move(
+                        tempFile.toPath(),
+                        settingsFile.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to save settings file atomically: {}", e.getMessage());
+            try {
+                mapper.writeValue(settingsFile, settings);
+            } catch (IOException ex) {
+                log.error("Failed to fallback-write settings file: {}", ex.getMessage());
+            }
+        } finally {
+            if (tempFile.exists()) {
+                tempFile.delete();
+            }
         }
     }
 }

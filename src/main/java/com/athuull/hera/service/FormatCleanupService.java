@@ -12,6 +12,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Service
@@ -42,11 +43,11 @@ public class FormatCleanupService {
 
         try (Stream<Path> files = Files.walk(downloadDir)) {
             List<Path> webmFiles = files
-                    .filter(f -> f.toString().endsWith(".webm"))
+                    .filter(f -> f.toString().toLowerCase().endsWith(".webm"))
                     .toList();
 
             for (Path webm : webmFiles) {
-                String mp3Path = webm.toString().replace(".webm", ".mp3");
+                String mp3Path = webm.toString().replaceAll("(?i)\\.webm$", ".mp3");
                 Path mp3 = Path.of(mp3Path);
 
                 ProcessBuilder pb = new ProcessBuilder(
@@ -58,10 +59,16 @@ public class FormatCleanupService {
 
                 Process process = pb.start();
                 process.getInputStream().readAllBytes();
-                int exitCode = process.waitFor();
+                boolean finished = process.waitFor(120, TimeUnit.SECONDS);
+                if (!finished) {
+                    process.destroyForcibly();
+                    log.warn("ffmpeg timed out converting: {}", webm.getFileName());
+                    continue;
+                }
 
+                int exitCode = process.exitValue();
                 if (exitCode == 0) {
-                    Files.delete(webm);
+                    Files.deleteIfExists(webm);
                     converted.add(mp3.getFileName().toString());
                     log.info("Converted: {} → {}", webm.getFileName(), mp3.getFileName());
                 } else {
@@ -75,22 +82,28 @@ public class FormatCleanupService {
         return converted;
     }
 
-    private boolean isFfmpegAvailable() {
+    public boolean isFfmpegAvailable() {
         try {
             Process process = new ProcessBuilder("ffmpeg", "-version").start();
             process.getInputStream().readAllBytes();
-            return process.waitFor() == 0;
+            boolean finished = process.waitFor(5, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                return false;
+            }
+            return process.exitValue() == 0;
         } catch (Exception e) {
             return false;
         }
     }
 
-    private Path resolveDownloadDir() {
+    public Path resolveDownloadDir() {
         String dir = config.getDownloadDir();
-        Path path = Paths.get(dir);
-
-        if (Files.exists(path) && Files.isDirectory(path)) {
-            return path;
+        if (dir != null && !dir.isBlank()) {
+            Path path = Paths.get(dir);
+            if (Files.exists(path) && Files.isDirectory(path)) {
+                return path;
+            }
         }
 
         Path fallback = Paths.get(System.getProperty("user.home"), "music", "downloads");
