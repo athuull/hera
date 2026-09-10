@@ -1,0 +1,9 @@
+{
+  "lastfmApiKey" : "936b1ac70edb22b26ffd03c3dce5cb7b",
+  "lastfmUsername" : "athuuul",
+  "maxDailyDownloads" : 10,
+  "format" : "mp3",
+  "bitrate" : "320",
+  "organizeByArtist" : true,
+  "downloadLyrics" : true
+}

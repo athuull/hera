@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+app:
+  config-dir: ${APP_CONFIG_DIR:./}
+
+lastfm:
+  api-root: http://ws.audioscrobbler.com/2.0/
+  api-key: ${LASTFM_API_KEY:}
+  format: json
+
+downtify:
+  base-url: ${DOWNTIFY_API_URL:http://localhost:8000}
+  download-dir: ${MUSIC_DOWNLOAD_DIR:/music/downloads}
+  format: mp3
+  bitrate: "320"
+  organize-by-artist: true
+  download-lyrics: true
+  max-concurrent-downloads: 4
+  poll-interval-ms: 3000
+  poll-timeout-ms: 1800000   # 30 minutes
+
+scheduler:
+  cron: ${CRON_SCHEDULE:0 0 2 * * *}
+  max-daily-downloads: 50
+  lastfm-username: ${LASTFM_USERNAME:}
