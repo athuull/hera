@@ -1,11 +1,14 @@
-# Music Downloader
+# Hera
 
 Automated music recommendation and download system using Last.fm for discovery and Downtify for downloading.
 
 ## Quick Start
 
 ```bash
-cp .env.example .env
-# Edit .env with your API keys
+git clone https://github.com/athuull/hera.git
+cd hera
 
 docker compose up --build -d
+```
+
+
