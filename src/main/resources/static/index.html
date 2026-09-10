@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hera</title>
+    <title>hera</title>
     <style>
         body {
             font-family: monospace;
@@ -12,6 +12,7 @@
             color: #000;
             margin: 20px;
             line-height: 1.5;
+            text-transform: lowercase; /* forces all text to lowercase */
         }
         h1, h2, h3 {
             font-weight: bold;
@@ -39,6 +40,7 @@
             border: 1px solid #000;
             background: #fff;
             padding: 4px;
+            text-transform: lowercase;
         }
         button {
             cursor: pointer;
@@ -71,34 +73,34 @@
 </head>
 <body>
 
-<h1>Music Downloader</h1>
-<div class="status-bar">WS: <span id="ws-text">Connecting...</span></div>
+<h1>hera</h1>
+<div class="status-bar">ws: <span id="ws-text">connecting...</span></div>
 
 <hr>
 
-<!-- SETTINGS -->
+<!-- settings -->
 <details>
-    <summary><b>Settings</b></summary>
+    <summary><b>settings</b></summary>
     <div style="margin-top: 10px; padding: 10px; border: 1px solid #000; background: #fff;">
         <fieldset>
-            <legend>Configuration</legend>
-            <label>Last.fm API Key:</label><br>
+            <legend>configuration</legend>
+            <label>last.fm api key:</label><br>
             <input type="password" id="set-lastfm-key" style="width: 100%; margin-bottom: 10px;"><br>
 
-            <label>Last.fm Username:</label><br>
+            <label>last.fm username:</label><br>
             <input type="text" id="set-lastfm-user" style="width: 100%; margin-bottom: 10px;"><br>
 
-            <label>Max Daily Downloads:</label>
+            <label>max daily downloads:</label>
             <input type="number" id="set-max-downloads" min="1" max="500" style="width: 80px; margin-bottom: 10px;"><br>
 
-            <label>Format:</label>
+            <label>format:</label>
             <select id="set-format">
-                <option value="mp3">MP3</option>
-                <option value="m4a">M4A</option>
-                <option value="opus">OPUS</option>
+                <option value="mp3">mp3</option>
+                <option value="m4a">m4a</option>
+                <option value="opus">opus</option>
             </select>
 
-            <label>Bitrate:</label>
+            <label>bitrate:</label>
             <select id="set-bitrate">
                 <option value="320">320</option>
                 <option value="256">256</option>
@@ -107,71 +109,71 @@
             </select><br><br>
 
             <input type="checkbox" id="set-organize">
-            <label for="set-organize">Organize by Artist</label><br>
+            <label for="set-organize">organize by artist</label><br>
 
             <input type="checkbox" id="set-lyrics">
-            <label for="set-lyrics">Download Lyrics</label><br><br>
+            <label for="set-lyrics">download lyrics</label><br><br>
 
-            <button onclick="saveSettings()">Save Settings</button>
+            <button onclick="saveSettings()">save settings</button>
         </fieldset>
     </div>
 </details>
 
 <hr>
 
-<!-- SEARCH -->
-<h2>Find Music</h2>
+<!-- search -->
+<h2>find music</h2>
 <div>
-    <label>Strategy:</label>
+    <label>strategy:</label>
     <select id="strategy" onchange="toggleSeedInput()">
-        <option value="HYBRID">Hybrid (My Profile)</option>
-        <option value="USER_PERSONALIZED">My Top Artists</option>
-        <option value="NOW_LISTENING">Now Listening</option>
-        <option value="GENRE_BASED">My Top Genres</option>
-        <option value="ARTIST_SIMILARITY">By Artist</option>
-        <option value="TRACK_SIMILARITY">By Track</option>
-        <option value="TAG_BASED">By Tag</option>
+        <option value="HYBRID">hybrid (my profile)</option>
+        <option value="USER_PERSONALIZED">my top artists</option>
+        <option value="NOW_LISTENING">now listening</option>
+        <option value="GENRE_BASED">my top genres</option>
+        <option value="ARTIST_SIMILARITY">by artist</option>
+        <option value="TRACK_SIMILARITY">by track</option>
+        <option value="TAG_BASED">by tag</option>
     </select>
 
-    <label>Limit:</label>
+    <label>limit:</label>
     <input type="number" id="limit" value="20" min="1" max="100" style="width: 60px;">
 
     <div id="seed-group" class="hidden" style="margin-top: 10px;">
-        <label id="seed-label">Search Term:</label><br>
+        <label id="seed-label">search term:</label><br>
         <input type="text" id="seed" style="width: 100%;">
     </div>
 
     <br><br>
-    <button id="search-btn" onclick="searchRecommendations()">Search</button>
+    <button id="search-btn" onclick="searchRecommendations()">search</button>
 </div>
 
 <hr>
 
-<!-- RESULTS -->
-<h2>Recommendations</h2>
+<!-- results -->
+<h2>recommendations</h2>
 <div id="results-actions" class="hidden" style="margin-bottom: 10px;">
-    <button onclick="selectAll(true)">Select All</button>
-    <button onclick="selectAll(false)">Deselect All</button>
-    <button onclick="downloadSelected()">Download Selected</button>
+    <button onclick="selectAll(true)">select all</button>
+    <button onclick="selectAll(false)">deselect all</button>
+    <button onclick="downloadSelected()">download selected</button>
 </div>
 <div id="results-table">
-    <p>No results yet.</p>
+    <p>no results yet.</p>
 </div>
 
 <hr>
 
-<!-- PROGRESS -->
-<h2>Download Progress</h2>
-<pre id="progress-feed">No active downloads.</pre>
-<button onclick="clearProgress()">Clear Log</button>
+<!-- progress -->
+<h2>download progress</h2>
+<pre id="progress-feed">no active downloads.</pre>
+<button onclick="clearProgress()">clear log</button>
 
 <hr>
 
-<!-- LIBRARY -->
-<h2>Library</h2>
-<button onclick="refreshLibrary()">Refresh Library</button>
+<!-- library -->
+<h2>library</h2>
+<button onclick="refreshLibrary()">refresh library</button>
 <div id="library-list" style="margin-top: 10px;">
-    <p>Click Refresh to load.</p>
+    <p>click refresh to load.</p>
 </div>
 
 <hr>
@@ -181,31 +183,31 @@
     let recommendations = [];
     let ws = null;
 
-    // ─── WebSocket ───
+    // ─── websocket ───
     function connectWS() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws/progress`;
         ws = new WebSocket(wsUrl);
 
-        ws.onopen = () => { document.getElementById('ws-text').innerText = 'Connected'; };
+        ws.onopen = () => { document.getElementById('ws-text').innerText = 'connected'; };
         ws.onclose = () => {
-            document.getElementById('ws-text').innerText = 'Disconnected';
+            document.getElementById('ws-text').innerText = 'disconnected';
             setTimeout(connectWS, 3000);
         };
-        ws.onerror = () => { document.getElementById('ws-text').innerText = 'Error'; };
+        ws.onerror = () => { document.getElementById('ws-text').innerText = 'error'; };
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
                 handleWSMessage(data);
             } catch (e) {
-                logProgress("WS: " + event.data);
+                logProgress("ws: " + event.data);
             }
         };
     }
 
     function handleWSMessage(data) {
         if (data.type === 'batch_complete') {
-            const msg = `Batch complete: ${data.downloaded} downloaded, ${data.failed} failed`;
+            const msg = `batch complete: ${data.downloaded} downloaded, ${data.failed} failed`;
             logProgress(msg);
             refreshLibrary();
             return;
@@ -213,11 +215,11 @@
 
         const song = data.song || {};
         const songName = (song.artist && song.title) ? `${song.artist} - ${song.title}` :
-                         song.name || data.filename || data.message || 'Unknown track';
+                         song.name || data.filename || data.message || 'unknown track';
         const status = data.status || 'unknown';
         const progress = data.progress || 0;
 
-        logProgress(`[${status.toUpperCase()}] ${songName} (${progress}%)`);
+        logProgress(`[${status}] ${songName} (${progress}%)`);
     }
 
     function logProgress(message) {
@@ -226,10 +228,10 @@
     }
 
     function clearProgress() {
-        document.getElementById('progress-feed').innerText = 'No active downloads.';
+        document.getElementById('progress-feed').innerText = 'no active downloads.';
     }
 
-    // ─── UI Logic for Seed Input ───
+    // ─── ui logic for seed input ───
     function toggleSeedInput() {
         const strategy = document.getElementById('strategy').value;
         const seedGroup = document.getElementById('seed-group');
@@ -241,23 +243,22 @@
         if (manualStrategies.includes(strategy)) {
             seedGroup.classList.remove('hidden');
             if (strategy === 'ARTIST_SIMILARITY') {
-                seedLabel.innerText = 'Artist name:';
-                seedInput.placeholder = 'Radiohead';
+                seedLabel.innerText = 'artist name:';
+                seedInput.placeholder = 'radiohead';
             } else if (strategy === 'TRACK_SIMILARITY') {
-                seedLabel.innerText = 'Artist - Track:';
-                seedInput.placeholder = 'Radiohead - Paranoid Android';
+                seedLabel.innerText = 'artist - track:';
+                seedInput.placeholder = 'radiohead - paranoid android';
             } else if (strategy === 'TAG_BASED') {
-                seedLabel.innerText = 'Genre tag:';
+                seedLabel.innerText = 'genre tag:';
                 seedInput.placeholder = 'shoegaze';
             }
         } else {
             seedGroup.classList.add('hidden');
-            // FIX: Clear the input value so it doesn't leak into the next personalized search
             seedInput.value = '';
         }
     }
 
-    // ─── API Calls ───
+    // ─── api calls ───
     async function searchRecommendations() {
         const strategy = document.getElementById('strategy').value;
         const seed = document.getElementById('seed').value.trim();
@@ -265,13 +266,13 @@
 
         const manualStrategies = ['ARTIST_SIMILARITY', 'TRACK_SIMILARITY', 'TAG_BASED'];
         if (manualStrategies.includes(strategy) && !seed) {
-            alert('Enter a search term');
+            alert('enter a search term');
             return;
         }
 
         const btn = document.getElementById('search-btn');
         btn.disabled = true;
-        btn.innerText = 'Searching...';
+        btn.innerText = 'searching...';
 
         try {
             const response = await fetch(buildSearchUrl(strategy, seed, limit));
@@ -279,10 +280,10 @@
             recommendations = await response.json();
             renderResults(recommendations);
         } catch (e) {
-            alert(`Search failed: ${e.message}`);
+            alert(`search failed: ${e.message}`);
         } finally {
             btn.disabled = false;
-            btn.innerText = 'Search';
+            btn.innerText = 'search';
         }
     }
 
@@ -298,7 +299,7 @@
                 return `/api/recommend/hybrid?username=${encodeURIComponent(seed)}&limit=${limit}`;
             case 'TRACK_SIMILARITY':
                 const parts = seed.split(' - ');
-                if (parts.length < 2) { alert('Format: Artist - Track'); throw new Error('Invalid format'); }
+                if (parts.length < 2) { alert('format: artist - track'); throw new Error('invalid format'); }
                 return `/api/recommend/track?artist=${encodeURIComponent(parts[0].trim())}&track=${encodeURIComponent(parts[1].trim())}&limit=${limit}`;
             case 'TAG_BASED':
                 return `/api/recommend/tag?tag=${encodeURIComponent(seed)}&limit=${limit}`;
@@ -313,7 +314,7 @@
         const table = document.getElementById('results-table');
 
         if (recs.length === 0) {
-            table.innerHTML = '<p>No recommendations found. Check settings.</p>';
+            table.innerHTML = '<p>no recommendations found. check settings.</p>';
             document.getElementById('results-actions').classList.add('hidden');
             return;
         }
@@ -322,11 +323,11 @@
 
         let html = `<table>
             <thead><tr>
-                <th>DL?</th>
-                <th>Artist</th>
-                <th>Track</th>
-                <th>Match</th>
-                <th>Listeners</th>
+                <th>dl?</th>
+                <th>artist</th>
+                <th>track</th>
+                <th>match</th>
+                <th>listeners</th>
             </tr></thead><tbody>`;
 
         recs.forEach((r, i) => {
@@ -358,7 +359,7 @@
             }
         });
 
-        if (selected.length === 0) { alert('Select at least one track'); return; }
+        if (selected.length === 0) { alert('select at least one track'); return; }
 
         try {
             const response = await fetch('/api/download/tracks', {
@@ -367,29 +368,29 @@
                 body: JSON.stringify({ tracks: selected })
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            logProgress(`Started download of ${selected.length} tracks...`);
+            logProgress(`started download of ${selected.length} tracks...`);
         } catch (e) {
-            alert(`Download failed: ${e.message}`);
+            alert(`download failed: ${e.message}`);
         }
     }
 
     async function refreshLibrary() {
         const list = document.getElementById('library-list');
-        list.innerHTML = '<p>Loading...</p>';
+        list.innerHTML = '<p>loading...</p>';
         try {
             const response = await fetch('/api/library');
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const files = await response.json();
             renderLibrary(files);
         } catch (e) {
-            list.innerHTML = `<p>Error: ${e.message}</p>`;
+            list.innerHTML = `<p>error: ${e.message}</p>`;
         }
     }
 
     function renderLibrary(files) {
         const list = document.getElementById('library-list');
         if (files.length === 0) {
-            list.innerHTML = '<p>No files downloaded yet.</p>';
+            list.innerHTML = '<p>no files downloaded yet.</p>';
             return;
         }
         let html = '<ul>';
@@ -401,11 +402,11 @@
         list.innerHTML = html;
     }
 
-    // ─── Settings ───
+    // ─── settings ───
     async function openSettings() {
         try {
             const response = await fetch('/api/settings');
-            if (!response.ok) throw new Error('Failed to load settings');
+            if (!response.ok) throw new Error('failed to load settings');
             const s = await response.json();
 
             document.getElementById('set-lastfm-key').value = s.lastfmApiKey || '';
@@ -416,7 +417,7 @@
             document.getElementById('set-organize').checked = s.organizeByArtist || false;
             document.getElementById('set-lyrics').checked = s.downloadLyrics || false;
         } catch (e) {
-            console.error('Error loading settings:', e);
+            console.error('error loading settings:', e);
         }
     }
 
@@ -437,14 +438,14 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(s)
             });
-            if (!response.ok) throw new Error('Failed to save settings');
-            alert('Settings saved!');
+            if (!response.ok) throw new Error('failed to save settings');
+            alert('settings saved!');
         } catch (e) {
-            alert(`Error saving settings: ${e.message}`);
+            alert(`error saving settings: ${e.message}`);
         }
     }
 
-    // ─── UI Helpers ───
+    // ─── ui helpers ───
     function selectAll(checked) {
         document.querySelectorAll('.track-check').forEach(cb => cb.checked = checked);
     }
@@ -455,7 +456,7 @@
         return div.innerHTML;
     }
 
-    // ─── Init ───
+    // ─── init ───
     window.addEventListener('DOMContentLoaded', () => {
         connectWS();
         toggleSeedInput();
