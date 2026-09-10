@@ -11,8 +11,8 @@
         <version>3.2.5</version>
     </parent>
 
-    <groupId>com.lo</groupId>
-    <artifactId>music-downloader</artifactId>
+    <groupId>com.athuull</groupId>
+    <artifactId>hera</artifactId>
     <version>1.0.0</version>
 
     <properties>

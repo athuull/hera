@@ -182,6 +182,7 @@
 <script>
     let recommendations = [];
     let ws = null;
+    let lastProgressLog = {};
 
     // ─── websocket ───
     function connectWS() {
@@ -219,7 +220,12 @@
         const status = data.status || 'unknown';
         const progress = data.progress || 0;
 
-        logProgress(`[${status}] ${songName} (${progress}%)`);
+        // Throttle: Only log if status changed, or progress crossed a 10% threshold
+        const lastLog = lastProgressLog[songName];
+        if (!lastLog || lastLog.status !== status || Math.floor(progress / 10) > Math.floor(lastLog.progress / 10)) {
+            logProgress(`[${status}] ${songName} (${Math.round(progress)}%)`);
+            lastProgressLog[songName] = { status, progress };
+        }
     }
 
     function logProgress(message) {
@@ -229,6 +235,7 @@
 
     function clearProgress() {
         document.getElementById('progress-feed').innerText = 'no active downloads.';
+        lastProgressLog = {};
     }
 
     // ─── ui logic for seed input ───
@@ -326,6 +333,7 @@
                 <th>dl?</th>
                 <th>artist</th>
                 <th>track</th>
+                <th>source</th>
                 <th>match</th>
                 <th>listeners</th>
             </tr></thead><tbody>`;
@@ -333,10 +341,12 @@
         recs.forEach((r, i) => {
             const pct = Math.round(r.matchScore * 100);
             const listeners = r.listenerCount.toLocaleString();
+            const source = r.sourceArtist || '';
             html += `<tr>
                 <td><input type="checkbox" class="track-check" data-index="${i}"></td>
                 <td>${escapeHtml(r.track.artist)}</td>
                 <td>${escapeHtml(r.track.title)}</td>
+                <td>${escapeHtml(source)}</td>
                 <td>${pct}%</td>
                 <td>${listeners}</td>
             </tr>`;
