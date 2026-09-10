@@ -1,6 +1,7 @@
 services:
   hera:
     build: .
+    image: hera-local:latest
     container_name: hera
     depends_on:
       - downtify
@@ -13,6 +14,8 @@ services:
     volumes:
       - /DATA/Media/Music/hera-downloads:/music/downloads
       - /DATA/AppData/hera-music/config:/config
+    networks:
+      - hera-net
     restart: unless-stopped
 
   downtify:
@@ -20,4 +23,10 @@ services:
     container_name: hera-downtify
     volumes:
       - /DATA/Media/Music/hera-downloads:/downloads
+    networks:
+      - hera-net
     restart: unless-stopped
+
+networks:
+  hera-net:
+    driver: bridge
