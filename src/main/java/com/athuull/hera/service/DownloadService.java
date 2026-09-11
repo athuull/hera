@@ -66,9 +66,22 @@ public class DownloadService {
     public Optional<JsonNode> searchForTrack(Track track) {
         try {
             JsonNode results = downtifyClient.searchSongs(track.toSearchQuery());
-            if (results != null && results.isArray() && !results.isEmpty()) {
-                return Optional.of(results.get(0));
+            if (results == null || !results.isArray() || results.isEmpty()) {
+                return Optional.empty();
             }
+
+            for (JsonNode candidate : results) {
+                String cTitle = candidate.path("name").asText("");
+                String cArtist = candidate.path("artists").isArray() && !candidate.path("artists").isEmpty()
+                        ? candidate.path("artists").get(0).asText("")
+                        : candidate.path("artist").asText("");
+                if (isPlausibleMatch(track, cArtist, cTitle)) {
+                    return Optional.of(candidate);
+                }
+            }
+
+            log.warn("No plausible match in {} results for '{} - {}'",
+                    results.size(), track.getArtist(), track.getTitle());
         } catch (Exception e) {
             log.warn("Search failed for '{} - {}': {}", track.getArtist(), track.getTitle(), e.getMessage());
         }
@@ -88,7 +101,7 @@ public class DownloadService {
             List<JsonNode> songsToDownload = new ArrayList<>();
             List<Track> matchedTracks = new ArrayList<>();
             int skipped = 0;
-            int rejectedBadMatch = 0;
+            int notFound = 0;
 
             for (Track track : tracks) {
                 if (dedupService.alreadyDownloaded(track.getArtist(), track.getTitle())) {
@@ -100,8 +113,9 @@ public class DownloadService {
 
                 Optional<JsonNode> song = searchForTrack(track);
                 if (song.isEmpty()) {
-                    log.warn("No YouTube Music match for: {} - {}", track.getArtist(), track.getTitle());
+                    log.warn("No plausible YouTube Music match for: {} - {}", track.getArtist(), track.getTitle());
                     broadcastStatus(track, "error", "no match found on youtube music");
+                    notFound++;
                     continue;
                 }
 
@@ -111,14 +125,6 @@ public class DownloadService {
                 String matchedArtist = matched.path("artists").isArray() && !matched.path("artists").isEmpty()
                         ? matched.path("artists").get(0).asText("")
                         : matched.path("artist").asText("");
-
-                if (!isPlausibleMatch(track, matchedArtist, matchedTitle)) {
-                    log.warn("Rejecting implausible match for '{} - {}': search returned '{} - {}'",
-                            track.getArtist(), track.getTitle(), matchedArtist, matchedTitle);
-                    rejectedBadMatch++;
-                    broadcastStatus(track, "error", "bad match rejected: " + matchedTitle);
-                    continue;
-                }
 
                 if (dedupService.alreadyDownloaded(matchedArtist, matchedTitle)) {
                     log.debug("Skipping (resolved match already downloaded): {} - {}", matchedArtist, matchedTitle);
@@ -131,9 +137,8 @@ public class DownloadService {
                 matchedTracks.add(track);
             }
 
-            log.info("Batch prepared: {} to download, {} skipped (dedup), {} bad matches rejected, {} not found",
-                    songsToDownload.size(), skipped, rejectedBadMatch,
-                    tracks.size() - songsToDownload.size() - skipped - rejectedBadMatch);
+            log.info("Batch prepared: {} to download, {} skipped (dedup), {} not found on youtube music",
+                    songsToDownload.size(), skipped, notFound);
 
             if (songsToDownload.isEmpty()) {
                 log.info("Nothing to download — all tracks already exist, weren't found, or had no valid match");
@@ -201,10 +206,10 @@ public class DownloadService {
     public boolean isPlausibleMatch(Track requested, String matchedArtist, String matchedTitle) {
         if (matchedTitle == null || matchedTitle.isBlank()) return false;
 
-        String reqTitle = requested.getTitle().toLowerCase().trim();
-        String gotTitle = matchedTitle.toLowerCase().trim();
-        String reqArtist = requested.getArtist().toLowerCase().trim();
-        String gotArtist = matchedArtist == null ? "" : matchedArtist.toLowerCase().trim();
+        String reqTitle  = cleanForComparison(requested.getTitle());
+        String gotTitle  = cleanForComparison(matchedTitle);
+        String reqArtist = cleanForComparison(requested.getArtist());
+        String gotArtist = matchedArtist == null ? "" : cleanForComparison(matchedArtist);
 
         boolean titleOverlaps = gotTitle.contains(reqTitle) || reqTitle.contains(gotTitle);
         boolean artistOverlaps = gotArtist.isBlank()
@@ -212,6 +217,25 @@ public class DownloadService {
                 || reqArtist.contains(gotArtist);
 
         return titleOverlaps && artistOverlaps;
+    }
+
+    /**
+     * Normalises a track/artist string for lenient comparison by:
+     * - Converting to lowercase
+     * - Removing anything inside parentheses or square brackets (feat lists, remixes, etc.)
+     * - Removing everything after " feat." or " ft."
+     * - Collapsing and trimming whitespace
+     */
+    String cleanForComparison(String input) {
+        if (input == null) return "";
+        String s = input.toLowerCase();
+        // Strip parenthesised and bracketed annotations: (feat. ...), [radio edit], etc.
+        s = s.replaceAll("\\([^)]*\\)", "");
+        s = s.replaceAll("\\[[^\\]]*\\]", "");
+        // Strip everything after a bare feat. / ft. that wasn't already in parens
+        s = s.replaceAll("\\s+feat\\..*", "");
+        s = s.replaceAll("\\s+ft\\..*", "");
+        return s.trim();
     }
 
     private List<DownloadResult> pollQueueUntilComplete(int expectedCount, List<Track> tracks, List<JsonNode> songNodes) {
