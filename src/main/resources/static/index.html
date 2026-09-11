@@ -753,6 +753,23 @@
         if (['ARTIST_SIMILARITY', 'TRACK_SIMILARITY', 'TAG_BASED'].includes(strategy) && !seed) {
             alert('enter a search term'); return;
         }
+
+        const personalStrategies = ['HYBRID', 'USER_PERSONALIZED', 'NOW_LISTENING', 'GENRE_BASED'];
+        if (personalStrategies.includes(strategy)) {
+            const apiKey = document.getElementById('set-lastfm-key').value.trim();
+            const username = document.getElementById('set-lastfm-user').value.trim();
+            const tableContainer = document.getElementById('results-table');
+            if (!apiKey || !username) {
+                const missing = [];
+                if (!apiKey) missing.push('last.fm api key');
+                if (!username) missing.push('last.fm username');
+                tableContainer.innerHTML = `<p style="color: var(--status-err);">
+                    missing ${missing.join(' and ')}. open <a href="#" onclick="document.getElementById('settings-details').open = true; document.getElementById('${!apiKey ? 'set-lastfm-key' : 'set-lastfm-user'}').focus(); return false;" style="color: var(--status-warn); text-decoration: underline; cursor: pointer;">settings</a> to configure.
+                </p>`;
+                return;
+            }
+        }
+
         const btn = document.getElementById('search-btn');
         btn.disabled = true; btn.innerText = '[searching...]';
         const tableContainer = document.getElementById('results-table');
@@ -873,8 +890,29 @@
         list.innerHTML = '<ul>' + files.map(f => {
             const name = f.replace(/\\/g, '/').split('/').pop();
             const coverUrl = `/api/cover?file=${encodeURIComponent(f)}`;
-            return `<li><img src="${coverUrl}" class="track-thumb" onerror="this.style.display='none'" alt="" /><span>${escapeHtml(name)}</span></li>`;
+            return `<li><img data-src="${coverUrl}" class="track-thumb track-thumb-lazy" onerror="this.style.display='none'" alt="" /><span>${escapeHtml(name)}</span></li>`;
         }).join('') + '</ul>';
+        observeLazyCovers();
+    }
+
+    function observeLazyCovers() {
+        const imgs = document.querySelectorAll('.track-thumb-lazy');
+        if (!imgs.length) return;
+        if (!('IntersectionObserver' in window)) {
+            imgs.forEach(img => { img.src = img.dataset.src; img.classList.remove('track-thumb-lazy'); });
+            return;
+        }
+        const observer = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    img.src = img.dataset.src;
+                    img.classList.remove('track-thumb-lazy');
+                    obs.unobserve(img);
+                }
+            });
+        }, { root: document.getElementById('library-list'), rootMargin: '100px' });
+        imgs.forEach(img => observer.observe(img));
     }
 
     function filterLibrary() {
