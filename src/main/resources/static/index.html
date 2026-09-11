@@ -98,6 +98,132 @@
         .library-list-box li:last-child { border-bottom: 0; }
         #status-text { margin-top: 14px; font-size: 13px; color: var(--status-ok); }
 
+        /* Progress Dashboard */
+        .progress-dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+        @media (max-width: 768px) {
+            .progress-dashboard { grid-template-columns: 1fr; }
+        }
+        .progress-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .progress-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 2px;
+            background: var(--border);
+            transition: background 0.2s ease, box-shadow 0.2s ease;
+        }
+        .progress-card.active::before {
+            background: var(--status-ok);
+            box-shadow: 0 0 8px rgba(52, 211, 153, 0.6);
+        }
+        .progress-card.active {
+            border-color: var(--border-focus);
+        }
+        .progress-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .progress-card-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+        }
+        .progress-track-name {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-height: 20px;
+        }
+        .progress-bar-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            background: var(--pre-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-family: var(--font-mono);
+        }
+        .progress-bar-text {
+            font-size: 13px;
+            letter-spacing: 0.06em;
+            white-space: nowrap;
+            overflow: hidden;
+            flex: 1;
+        }
+        .bar-bracket { color: var(--text-dim); }
+        .bar-hashes {
+            color: var(--status-ok);
+            font-weight: 700;
+            text-shadow: 0 0 6px rgba(52, 211, 153, 0.35);
+        }
+        .bar-dots {
+            color: var(--text-dim);
+            opacity: 0.35;
+        }
+        .progress-bar-pct {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--status-ok);
+            min-width: 44px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .progress-subtext {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            min-height: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .progress-log-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .progress-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 7px 12px;
+            background: var(--surface-elevated);
+            border-bottom: 1px solid var(--border);
+            font-size: 11.5px;
+            color: var(--text-muted);
+        }
+        .progress-log-container pre {
+            border: 0;
+            border-radius: 0;
+            max-height: 120px;
+            padding: 10px 12px;
+            font-size: 12px;
+            margin: 0;
+        }
+
         footer { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; justify-content: center; align-items: center; }
         .github-link { display: inline-flex; align-items: center; color: var(--text-dim); text-decoration: none; transition: color 0.15s ease, transform 0.15s ease; }
         .github-link:hover { color: var(--text); transform: translateY(-1px); }
@@ -132,7 +258,7 @@
             </div>
             <div class="setting-row">
                 <label>scheduled daily limit (nightly):</label>
-                <input type="number" id="set-max-downloads" min="1" max="500" style="width: 90px;">
+                <input type="number" id="set-max-downloads" min="1" max="500" value="5" style="width: 90px;">
             </div>
             <div class="setting-row">
                 <label>auto-download strategy:</label>
@@ -225,9 +351,44 @@
 <hr>
 
 <h2>download progress <span id="download-status" class="status-pill idle" style="font-size: 12px; font-weight: normal; margin-left: 6px;">[idle]</span></h2>
-<pre id="progress-feed">no active downloads.</pre>
-<div style="margin-top: 10px;">
-    <button onclick="clearProgress()">[clear log]</button>
+
+<div class="progress-dashboard">
+    <!-- Left Card: Current Track Download Progress -->
+    <div class="progress-card" id="card-track">
+        <div class="progress-card-header">
+            <span class="progress-card-title">current track</span>
+            <span id="track-status-pill" class="status-pill idle">[idle]</span>
+        </div>
+        <div id="track-name-display" class="progress-track-name" title="no active download">no active download</div>
+        <div class="progress-bar-container">
+            <span id="track-progress-bar" class="progress-bar-text"><span class="bar-bracket">[</span><span class="bar-dots">............................</span><span class="bar-bracket">]</span></span>
+            <span id="track-progress-pct" class="progress-bar-pct">0%</span>
+        </div>
+        <div id="track-subtext" class="progress-subtext">waiting for download job...</div>
+    </div>
+
+    <!-- Right Card: Batch Download Progress (To the side) -->
+    <div class="progress-card" id="card-batch">
+        <div class="progress-card-header">
+            <span class="progress-card-title">batch progress</span>
+            <span id="batch-status-pill" class="status-pill idle">[idle]</span>
+        </div>
+        <div id="batch-count-display" class="progress-track-name">0 / 0 tracks</div>
+        <div class="progress-bar-container">
+            <span id="batch-progress-bar" class="progress-bar-text"><span class="bar-bracket">[</span><span class="bar-dots">............................</span><span class="bar-bracket">]</span></span>
+            <span id="batch-progress-pct" class="progress-bar-pct">0%</span>
+        </div>
+        <div id="batch-subtext" class="progress-subtext">no active batch</div>
+    </div>
+</div>
+
+<!-- Compact Activity Feed -->
+<div class="progress-log-container">
+    <div class="progress-log-header">
+        <span>activity feed</span>
+        <button onclick="clearProgress()" style="padding: 2px 8px; font-size: 11px;">[clear log]</button>
+    </div>
+    <pre id="progress-feed">no active downloads.</pre>
 </div>
 
 <hr>
@@ -252,7 +413,85 @@
 </footer>
 
 <script>
-    let recommendations = [], libraryData = [], ws = null, lastProgressLog = {};
+    let recommendations = [], libraryData = [], ws = null;
+    let batchState = {
+        active: false,
+        total: 0,
+        completed: 0,
+        failed: 0,
+        skipped: 0,
+        currentTrack: '',
+        currentProgress: 0,
+        currentStatus: 'idle'
+    };
+
+    function renderHashBarHTML(percent, totalChars = 28) {
+        const clamped = Math.max(0, Math.min(100, Math.round(percent || 0)));
+        const filledCount = Math.round((clamped / 100) * totalChars);
+        const emptyCount = Math.max(0, totalChars - filledCount);
+        const filledHashes = '#'.repeat(filledCount);
+        const emptyDots = '.'.repeat(emptyCount);
+        return `<span class="bar-bracket">[</span><span class="bar-hashes">${filledHashes}</span><span class="bar-dots">${emptyDots}</span><span class="bar-bracket">]</span>`;
+    }
+
+    function updateTrackUI(name, percent, statusText, subtext, statusType = 'active') {
+        const nameElem = document.getElementById('track-name-display');
+        const barElem = document.getElementById('track-progress-bar');
+        const pctElem = document.getElementById('track-progress-pct');
+        const pillElem = document.getElementById('track-status-pill');
+        const subElem = document.getElementById('track-subtext');
+        const cardElem = document.getElementById('card-track');
+
+        if (nameElem && name) { nameElem.innerText = name; nameElem.title = name; }
+        if (barElem) barElem.innerHTML = renderHashBarHTML(percent);
+        if (pctElem) pctElem.innerText = `${Math.round(percent)}%`;
+        if (pillElem && statusText) {
+            pillElem.className = `status-pill ${statusType}`;
+            pillElem.innerText = statusText;
+        }
+        if (subElem && subtext) subElem.innerText = subtext;
+        if (cardElem) {
+            if (statusType === 'active') cardElem.classList.add('active');
+            else cardElem.classList.remove('active');
+        }
+    }
+
+    function updateBatchUI(completed, total, smoothPercent, subtext, statusType = 'active') {
+        const countElem = document.getElementById('batch-count-display');
+        const barElem = document.getElementById('batch-progress-bar');
+        const pctElem = document.getElementById('batch-progress-pct');
+        const pillElem = document.getElementById('batch-status-pill');
+        const subElem = document.getElementById('batch-subtext');
+        const cardElem = document.getElementById('card-batch');
+
+        if (countElem) countElem.innerText = `${completed} / ${total} tracks`;
+        if (barElem) barElem.innerHTML = renderHashBarHTML(smoothPercent);
+        if (pctElem) pctElem.innerText = `${Math.round(smoothPercent)}%`;
+        if (pillElem) {
+            pillElem.className = `status-pill ${statusType}`;
+            pillElem.innerText = statusType === 'active' ? '[● running]' : (statusType === 'connected' ? '[✓ complete]' : '[idle]');
+        }
+        if (subElem && subtext) subElem.innerText = subtext;
+        if (cardElem) {
+            if (statusType === 'active') cardElem.classList.add('active');
+            else cardElem.classList.remove('active');
+        }
+    }
+
+    function startBatch(total) {
+        batchState.active = true;
+        batchState.total = Math.max(1, total || 1);
+        batchState.completed = 0;
+        batchState.failed = 0;
+        batchState.skipped = 0;
+        batchState.currentTrack = '';
+        batchState.currentProgress = 0;
+        batchState.currentStatus = 'downloading';
+        setDownloadStatus(true, `[● batch of ${batchState.total}]`);
+        updateTrackUI('preparing download...', 0, '[queued]', 'locating stream on youtube music...', 'active');
+        updateBatchUI(0, batchState.total, 0, `in-progress: 0 | remaining: ${batchState.total}`, 'active');
+        logProgress(`started batch download of ${batchState.total} tracks...`);
+    }
 
     function populateTimeDropdowns() {
         const h = document.getElementById('set-cron-hour'), m = document.getElementById('set-cron-minute');
@@ -292,35 +531,122 @@
     }
 
     function handleWSMessage(data) {
+        if (data.type === 'batch_start') {
+            startBatch(data.total);
+            return;
+        }
+
+        if (data.type === 'batch_progress') {
+            if (!batchState.active && data.total) {
+                batchState.active = true;
+                batchState.total = data.total;
+            }
+            if (data.completed !== undefined) {
+                batchState.completed = data.completed;
+                const smoothPct = batchState.total > 0 ? (batchState.completed / batchState.total) * 100 : 0;
+                updateBatchUI(batchState.completed, batchState.total, smoothPct, `completed: ${batchState.completed} | remaining: ${Math.max(0, batchState.total - batchState.completed)}`, 'active');
+            }
+            return;
+        }
+
         if (data.type === 'batch_complete') {
-            logProgress(`batch complete: ${data.downloaded} downloaded, ${data.failed} failed`);
-            refreshLibrary();
+            batchState.active = false;
+            const downloadedCount = data.downloaded !== undefined ? data.downloaded : Math.max(0, batchState.completed - batchState.failed - batchState.skipped);
+            const failedCount = data.failed !== undefined ? Math.max(data.failed, batchState.failed) : batchState.failed;
+            const skippedCount = data.skipped !== undefined ? Math.max(data.skipped, batchState.skipped) : batchState.skipped;
+            const totalDone = data.total || (downloadedCount + failedCount + skippedCount) || batchState.total || 0;
+            batchState.total = totalDone;
+            batchState.completed = totalDone;
             setDownloadStatus(false, '[✓ complete]');
-            setTimeout(() => setDownloadStatus(false, '[idle]'), 4000);
+            updateTrackUI(batchState.currentTrack || 'all tracks processed', 100, '[✓ done]', 'all jobs completed', 'connected');
+            updateBatchUI(totalDone, totalDone, 100, `finished: ${downloadedCount} downloaded, ${failedCount} failed${skippedCount ? `, ${skippedCount} skipped` : ''}`, 'connected');
+            logProgress(`batch complete: ${downloadedCount} downloaded, ${failedCount} failed${skippedCount ? `, ${skippedCount} skipped` : ''}`);
+            refreshLibrary();
+            setTimeout(() => {
+                setDownloadStatus(false, '[idle]');
+                const pillT = document.getElementById('track-status-pill');
+                const pillB = document.getElementById('batch-status-pill');
+                if (pillT) { pillT.className = 'status-pill idle'; pillT.innerText = '[idle]'; }
+                if (pillB) { pillB.className = 'status-pill idle'; pillB.innerText = '[idle]'; }
+                const cardT = document.getElementById('card-track');
+                const cardB = document.getElementById('card-batch');
+                if (cardT) cardT.classList.remove('active');
+                if (cardB) cardB.classList.remove('active');
+            }, 5000);
             const dlBtn = document.getElementById('download-selected-btn');
             if (dlBtn) { dlBtn.disabled = false; dlBtn.innerText = '[download selected]'; }
             return;
         }
+
+        // Song level event
         const song = data.song || {};
-        const songName = (song.artist && song.title) ? `${song.artist} - ${song.title}` : song.name || data.filename || data.message || 'unknown track';
+        const songName = (song.artist && song.title) ? `${song.artist} - ${song.title}` : song.name || data.filename || data.message || 'track';
         const status = data.status || 'unknown';
-        const progress = data.progress || 0;
-        if (status === 'downloading' || status === 'queued') setDownloadStatus(true, `[● ${status}: ${Math.round(progress)}%]`);
-        const lastLog = lastProgressLog[songName];
-        if (!lastLog || lastLog.status !== status || Math.floor(progress / 10) > Math.floor(lastLog.progress / 10)) {
-            logProgress(`[${status}] ${songName} (${Math.round(progress)}%)`);
-            lastProgressLog[songName] = { status, progress };
+        const progress = data.progress !== undefined ? data.progress : 0;
+
+        if (status === 'downloading' || status === 'queued') {
+            if (!batchState.active) {
+                batchState.active = true;
+                batchState.total = Math.max(1, batchState.total || 1);
+            }
+            batchState.currentTrack = songName;
+            batchState.currentProgress = progress;
+            setDownloadStatus(true, `[● ${Math.round(progress)}%]`);
+            updateTrackUI(songName, progress, `[● ${Math.round(progress)}%]`, 'downloading audio stream...', 'active');
+
+            const smoothBatchPct = batchState.total > 0
+                ? Math.min(100, ((batchState.completed + progress / 100) / batchState.total) * 100)
+                : progress;
+            const remaining = Math.max(0, batchState.total - batchState.completed - 1);
+            updateBatchUI(batchState.completed, batchState.total, smoothBatchPct, `in-progress: 1 | remaining: ${remaining}`, 'active');
+        } else if (status === 'finished' || status === 'done') {
+            if (!batchState.active) batchState.total = Math.max(1, batchState.total || 1);
+            batchState.completed = Math.min(batchState.total, batchState.completed + 1);
+            updateTrackUI(songName, 100, '[✓ done]', 'downloaded and saved to library', 'connected');
+            const batchPct = batchState.total > 0 ? (batchState.completed / batchState.total) * 100 : 100;
+            updateBatchUI(batchState.completed, batchState.total, batchPct, `completed: ${batchState.completed} | remaining: ${Math.max(0, batchState.total - batchState.completed)}`, 'active');
+            logProgress(`[✓ done] ${songName}`);
+        } else if (status === 'skipped') {
+            if (!batchState.active) batchState.total = Math.max(1, batchState.total || 1);
+            batchState.skipped++;
+            batchState.completed = Math.min(batchState.total, batchState.completed + 1);
+            updateTrackUI(songName, 100, '[skipped]', data.message || 'already in library', 'idle');
+            const batchPct = batchState.total > 0 ? (batchState.completed / batchState.total) * 100 : 100;
+            updateBatchUI(batchState.completed, batchState.total, batchPct, `skipped: ${songName} (already downloaded)`, 'active');
+            logProgress(`[skipped] ${songName} (${data.message || 'already downloaded'})`);
+        } else if (status === 'error') {
+            if (!batchState.active) batchState.total = Math.max(1, batchState.total || 1);
+            batchState.failed++;
+            batchState.completed = Math.min(batchState.total, batchState.completed + 1);
+            updateTrackUI(songName, 0, '[error]', data.message || 'download error', 'disconnected');
+            const batchPct = batchState.total > 0 ? (batchState.completed / batchState.total) * 100 : 0;
+            updateBatchUI(batchState.completed, batchState.total, batchPct, `failed: ${songName}`, 'active');
+            logProgress(`[error] ${songName}: ${data.message || 'failed'}`);
         }
     }
 
     function logProgress(msg) {
         const feed = document.getElementById('progress-feed');
-        feed.innerText = feed.innerText === 'no active downloads.' ? msg : msg + "\n" + feed.innerText;
+        if (!feed) return;
+        const ts = new Date().toTimeString().split(' ')[0];
+        const line = `[${ts}] ${msg}`;
+        if (feed.innerText === 'no active downloads.') {
+            feed.innerText = line;
+        } else {
+            const lines = feed.innerText.split('\n');
+            if (lines.length > 50) lines.pop();
+            feed.innerText = line + '\n' + lines.join('\n');
+        }
     }
 
     function clearProgress() {
-        document.getElementById('progress-feed').innerText = 'no active downloads.';
-        lastProgressLog = {};
+        const feed = document.getElementById('progress-feed');
+        if (feed) feed.innerText = 'no active downloads.';
+        if (!batchState.active) {
+            updateTrackUI('no active download', 0, '[idle]', 'waiting for download job...', 'idle');
+            updateBatchUI(0, 0, 0, 'no active batch', 'idle');
+            setDownloadStatus(false, '[idle]');
+        }
     }
 
     function toggleSeedInput() {
@@ -428,11 +754,10 @@
         if (selected.length === 0) { alert('select at least one track'); return; }
         const btn = document.getElementById('download-selected-btn');
         if (btn) { btn.disabled = true; btn.innerText = `[queuing ${selected.length}...]`; }
-        setDownloadStatus(true, `[● downloading ${selected.length} track${selected.length > 1 ? 's' : ''}...]`);
+        startBatch(selected.length);
         try {
             const res = await fetch('/api/download/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracks: selected }) });
             if (!res.ok) throw new Error(`http ${res.status}`);
-            logProgress(`started download of ${selected.length} tracks...`);
             if (btn) btn.innerText = '[downloading...]';
         } catch (e) {
             alert(`download failed: ${e.message}`);
@@ -503,7 +828,7 @@
             const s = await res.json();
             document.getElementById('set-lastfm-key').value = s.lastfmApiKey || '';
             document.getElementById('set-lastfm-user').value = s.lastfmUsername || '';
-            document.getElementById('set-max-downloads').value = s.maxDailyDownloads || 50;
+            document.getElementById('set-max-downloads').value = s.maxDailyDownloads || 5;
             document.getElementById('set-strategy').value = s.scheduledStrategy || 'HYBRID';
             const t = parseCron(s.cronSchedule || '0 0 2 * * *');
             document.getElementById('set-cron-hour').value = t.hour;
@@ -519,7 +844,7 @@
         const s = {
             lastfmApiKey: document.getElementById('set-lastfm-key').value.trim(),
             lastfmUsername: document.getElementById('set-lastfm-user').value.trim(),
-            maxDailyDownloads: parseInt(document.getElementById('set-max-downloads').value) || 50,
+            maxDailyDownloads: parseInt(document.getElementById('set-max-downloads').value) || 5,
             scheduledStrategy: document.getElementById('set-strategy').value,
             cronSchedule: buildCron(),
             format: document.getElementById('set-format').value,

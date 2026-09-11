@@ -90,7 +90,7 @@ public class RecommendationService {
             return Collections.emptyList();
         }
 
-        int nightlyLimit = appSettings.getMaxDailyDownloads() > 0 ? appSettings.getMaxDailyDownloads() : 50;
+        int nightlyLimit = appSettings.getMaxDailyDownloads() > 0 ? appSettings.getMaxDailyDownloads() : 5;
         RecommendationStrategy strategy = appSettings.getScheduledStrategy() != null
                 ? appSettings.getScheduledStrategy()
                 : RecommendationStrategy.HYBRID;

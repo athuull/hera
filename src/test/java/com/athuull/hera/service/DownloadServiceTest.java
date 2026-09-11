@@ -1,17 +1,23 @@
 package com.athuull.hera.service;
 
+import com.athuull.hera.model.DownloadResult;
 import com.athuull.hera.model.Track;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DownloadServiceTest {
@@ -267,5 +273,120 @@ class DownloadServiceTest {
 
         assertTrue(result.isPresent(), "Expected match to be found with object-format artist");
         assertEquals("Say It", result.get().path("name").asText());
+    }
+
+    // ─── downloadBatch ────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("downloadBatch counts notFound tracks as failed in batch completion")
+    void testDownloadBatchCountsNotFoundAsFailed() throws Exception {
+        com.athuull.hera.client.DowntifyClient fakeClient =
+                Mockito.mock(com.athuull.hera.client.DowntifyClient.class);
+        com.athuull.hera.ws.ProgressWebSocketHandler fakeHandler =
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class);
+        DeduplicationService fakeDedup = Mockito.mock(DeduplicationService.class);
+        com.athuull.hera.config.DowntifyConfig fakeConfig =
+                Mockito.mock(com.athuull.hera.config.DowntifyConfig.class);
+        when(fakeConfig.getPollTimeoutMs()).thenReturn(1000L);
+        when(fakeConfig.getPollIntervalMs()).thenReturn(10L);
+
+        // Track 1 fails search (no matches on YouTube Music)
+        Track trackFail = new Track("Tory Lanez", "Say It", null, null);
+        when(fakeClient.searchSongs(trackFail.toSearchQuery())).thenReturn(mapper.readTree("[]"));
+
+        // Track 2 succeeds search
+        Track trackOk = new Track("Artist2", "Song2", null, null);
+        String song2Json = "[{\"name\":\"Song2\",\"artists\":[\"Artist2\"]}]";
+        when(fakeClient.searchSongs(trackOk.toSearchQuery())).thenReturn(mapper.readTree(song2Json));
+
+        // Downtify download batch returns count: 1
+        when(fakeClient.downloadBatch(anyList())).thenReturn(mapper.readTree("{\"count\": 1}"));
+
+        // Downtify queue returns 1 completed job
+        String queueJson = "[{\"status\":\"done\",\"filename\":\"Artist2 - Song2.mp3\",\"name\":\"Song2\",\"artists\":[\"Artist2\"]}]";
+        when(fakeClient.getQueue()).thenReturn(mapper.readTree(queueJson));
+
+        DownloadService svc = new DownloadService(
+                fakeClient,
+                fakeConfig,
+                Mockito.mock(SettingsService.class),
+                fakeDedup,
+                Mockito.mock(FormatCleanupService.class),
+                fakeHandler
+        );
+
+        List<DownloadResult> results = svc.downloadBatch(List.of(trackFail, trackOk));
+
+        assertEquals(2, results.size());
+        assertTrue(results.stream().anyMatch(r -> r.isError() && "no match found on youtube music".equals(r.getErrorMessage())));
+        assertTrue(results.stream().anyMatch(DownloadResult::isDone));
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(fakeHandler, atLeastOnce()).broadcast(captor.capture());
+
+        JsonNode completePayload = null;
+        for (String msg : captor.getAllValues()) {
+            JsonNode node = mapper.readTree(msg);
+            if ("batch_complete".equals(node.path("type").asText())) {
+                completePayload = node;
+            }
+        }
+
+        assertNotNull(completePayload, "batch_complete payload must be broadcast");
+        assertEquals(2, completePayload.path("total").asInt());
+        assertEquals(1, completePayload.path("downloaded").asInt());
+        assertEquals(1, completePayload.path("failed").asInt(), "failed count must be 1 because 1 track was not found");
+        assertEquals(0, completePayload.path("skipped").asInt());
+    }
+
+    @Test
+    @DisplayName("downloadBatch handles batch where all tracks are skipped or not found")
+    void testDownloadBatchAllSkippedOrNotFound() throws Exception {
+        com.athuull.hera.client.DowntifyClient fakeClient =
+                Mockito.mock(com.athuull.hera.client.DowntifyClient.class);
+        com.athuull.hera.ws.ProgressWebSocketHandler fakeHandler =
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class);
+        DeduplicationService fakeDedup = Mockito.mock(DeduplicationService.class);
+        com.athuull.hera.config.DowntifyConfig fakeConfig =
+                Mockito.mock(com.athuull.hera.config.DowntifyConfig.class);
+
+        Track trackSkipped = new Track("Artist1", "AlreadyHave", null, null);
+        when(fakeDedup.alreadyDownloaded("Artist1", "AlreadyHave")).thenReturn(true);
+
+        Track trackNotFound = new Track("Artist2", "NotFound", null, null);
+        when(fakeDedup.alreadyDownloaded("Artist2", "NotFound")).thenReturn(false);
+        when(fakeClient.searchSongs(trackNotFound.toSearchQuery())).thenReturn(mapper.readTree("[]"));
+
+        DownloadService svc = new DownloadService(
+                fakeClient,
+                fakeConfig,
+                Mockito.mock(SettingsService.class),
+                fakeDedup,
+                Mockito.mock(FormatCleanupService.class),
+                fakeHandler
+        );
+
+        List<DownloadResult> results = svc.downloadBatch(List.of(trackSkipped, trackNotFound));
+
+        assertEquals(2, results.size());
+        assertEquals(1, results.stream().filter(r -> "skipped".equals(r.getStatus())).count());
+        assertEquals(1, results.stream().filter(DownloadResult::isError).count());
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(fakeHandler, atLeastOnce()).broadcast(captor.capture());
+
+        JsonNode completePayload = null;
+        for (String msg : captor.getAllValues()) {
+            JsonNode node = mapper.readTree(msg);
+            if ("batch_complete".equals(node.path("type").asText())) {
+                completePayload = node;
+            }
+        }
+
+        assertNotNull(completePayload);
+        assertEquals(2, completePayload.path("total").asInt());
+        assertEquals(0, completePayload.path("downloaded").asInt());
+        assertEquals(1, completePayload.path("failed").asInt());
+        assertEquals(1, completePayload.path("skipped").asInt());
     }
 }

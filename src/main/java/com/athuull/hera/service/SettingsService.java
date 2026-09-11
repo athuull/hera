@@ -28,7 +28,7 @@ public class SettingsService {
     @Value("${scheduler.lastfm-username:}")
     private String envUsername;
 
-    @Value("${scheduler.max-daily-downloads:50}")
+    @Value("${scheduler.max-daily-downloads:5}")
     private int envMaxDownloads;
 
     @Value("${scheduler.cron:0 0 2 * * *}")

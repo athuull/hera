@@ -95,9 +95,11 @@ public class DownloadService {
 
         try {
             dedupService.refreshIndex();
+            broadcastBatchStart(tracks != null ? tracks.size() : 0);
 
             List<JsonNode> songsToDownload = new ArrayList<>();
             List<Track> matchedTracks = new ArrayList<>();
+            List<DownloadResult> results = new ArrayList<>();
             int skipped = 0;
             int notFound = 0;
 
@@ -106,6 +108,11 @@ public class DownloadService {
                     log.debug("Skipping (already downloaded): {} - {}", track.getArtist(), track.getTitle());
                     skipped++;
                     broadcastStatus(track, "skipped", "already downloaded");
+                    results.add(DownloadResult.builder()
+                            .track(track)
+                            .status("skipped")
+                            .errorMessage("already downloaded")
+                            .build());
                     continue;
                 }
 
@@ -114,6 +121,11 @@ public class DownloadService {
                     log.warn("No plausible YouTube Music match for: {} - {}", track.getArtist(), track.getTitle());
                     broadcastStatus(track, "error", "no match found on youtube music");
                     notFound++;
+                    results.add(DownloadResult.builder()
+                            .track(track)
+                            .status("error")
+                            .errorMessage("no match found on youtube music")
+                            .build());
                     continue;
                 }
 
@@ -126,6 +138,11 @@ public class DownloadService {
                     log.debug("Skipping (resolved match already downloaded): {} - {}", matchedArtist, matchedTitle);
                     skipped++;
                     broadcastStatus(track, "skipped", "already downloaded (matched name)");
+                    results.add(DownloadResult.builder()
+                            .track(track)
+                            .status("skipped")
+                            .errorMessage("already downloaded (matched name)")
+                            .build());
                     continue;
                 }
 
@@ -136,9 +153,12 @@ public class DownloadService {
             log.info("Batch prepared: {} to download, {} skipped (dedup), {} not found on youtube music",
                     songsToDownload.size(), skipped, notFound);
 
+            int totalTracks = tracks != null ? tracks.size() : 0;
+
             if (songsToDownload.isEmpty()) {
                 log.info("Nothing to download — all tracks already exist, weren't found, or had no valid match");
-                return Collections.emptyList();
+                broadcastBatchComplete(totalTracks, 0, notFound, skipped);
+                return results;
             }
 
             try {
@@ -148,11 +168,31 @@ public class DownloadService {
                 log.warn("Could not clear Downtify queue: {}", e.getMessage());
             }
 
-            JsonNode batchResponse = downtifyClient.downloadBatch(songsToDownload);
-            int expectedCount = batchResponse != null ? batchResponse.path("count").asInt(0) : 0;
+            int preCompleted = skipped + notFound;
+            List<DownloadResult> downloadResults;
 
-            log.info("Batch download queued: {} jobs", expectedCount);
-            List<DownloadResult> results = pollQueueUntilComplete(expectedCount, matchedTracks, songsToDownload);
+            try {
+                JsonNode batchResponse = downtifyClient.downloadBatch(songsToDownload);
+                int expectedCount = (batchResponse != null && batchResponse.has("count") && batchResponse.path("count").asInt() > 0)
+                        ? batchResponse.path("count").asInt()
+                        : songsToDownload.size();
+
+                log.info("Batch download queued: {} jobs", expectedCount);
+                downloadResults = pollQueueUntilComplete(expectedCount, matchedTracks, songsToDownload, totalTracks, preCompleted);
+            } catch (Exception e) {
+                log.error("Failed to queue or execute batch download with Downtify: {}", e.getMessage(), e);
+                downloadResults = new ArrayList<>();
+                for (Track track : matchedTracks) {
+                    broadcastStatus(track, "error", "Failed to queue download: " + e.getMessage());
+                    downloadResults.add(DownloadResult.builder()
+                            .track(track)
+                            .status("error")
+                            .errorMessage("Failed to queue download: " + e.getMessage())
+                            .build());
+                }
+            }
+
+            results.addAll(downloadResults);
 
             try {
                 List<String> converted = formatCleanupService.cleanupWebmFiles();
@@ -168,15 +208,7 @@ public class DownloadService {
 
             long succeeded = results.stream().filter(DownloadResult::isDone).count();
             long failed = results.stream().filter(DownloadResult::isError).count();
-            try {
-                Map<String, Object> completeMsg = new LinkedHashMap<>();
-                completeMsg.put("type", "batch_complete");
-                completeMsg.put("downloaded", succeeded);
-                completeMsg.put("failed", failed);
-                progressHandler.broadcast(objectMapper.writeValueAsString(completeMsg));
-            } catch (Exception e) {
-                log.debug("Could not broadcast batch completion: {}", e.getMessage());
-            }
+            broadcastBatchComplete(totalTracks, succeeded, failed, skipped);
 
             return results;
         } finally {
@@ -196,6 +228,43 @@ public class DownloadService {
             progressHandler.broadcast(objectMapper.writeValueAsString(payload));
         } catch (Exception e) {
             log.debug("Failed to broadcast status: {}", e.getMessage());
+        }
+    }
+
+    private void broadcastBatchStart(int total) {
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("type", "batch_start");
+            payload.put("total", total);
+            progressHandler.broadcast(objectMapper.writeValueAsString(payload));
+        } catch (Exception e) {
+            log.debug("Failed to broadcast batch start: {}", e.getMessage());
+        }
+    }
+
+    private void broadcastBatchProgress(int completed, int total) {
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("type", "batch_progress");
+            payload.put("completed", completed);
+            payload.put("total", total);
+            progressHandler.broadcast(objectMapper.writeValueAsString(payload));
+        } catch (Exception e) {
+            log.debug("Failed to broadcast batch progress: {}", e.getMessage());
+        }
+    }
+
+    private void broadcastBatchComplete(int total, long succeeded, long failed, int skipped) {
+        try {
+            Map<String, Object> completeMsg = new LinkedHashMap<>();
+            completeMsg.put("type", "batch_complete");
+            completeMsg.put("total", total);
+            completeMsg.put("downloaded", succeeded);
+            completeMsg.put("failed", failed);
+            completeMsg.put("skipped", skipped);
+            progressHandler.broadcast(objectMapper.writeValueAsString(completeMsg));
+        } catch (Exception e) {
+            log.debug("Could not broadcast batch completion: {}", e.getMessage());
         }
     }
 
@@ -319,7 +388,8 @@ public class DownloadService {
         return candidate.path("artist").asText("");
     }
 
-    private List<DownloadResult> pollQueueUntilComplete(int expectedCount, List<Track> tracks, List<JsonNode> songNodes) {
+    private List<DownloadResult> pollQueueUntilComplete(int expectedCount, List<Track> tracks, List<JsonNode> songNodes,
+                                                        int totalBatchSize, int preCompleted) {
         List<DownloadResult> results = new ArrayList<>();
         long startTime = System.currentTimeMillis();
 
@@ -384,6 +454,8 @@ public class DownloadService {
             if (completedInThisPoll > results.size()) {
                 results = newResults;
                 log.info("Progress: {}/{} jobs completed", results.size(), expectedCount);
+                int progressTotal = totalBatchSize > 0 ? totalBatchSize : expectedCount;
+                broadcastBatchProgress(preCompleted + results.size(), progressTotal);
             }
         }
 
@@ -391,6 +463,27 @@ public class DownloadService {
         for (int i = 0; i < results.size(); i++) {
             if (results.get(i).getTrack() == null && i < tracks.size()) {
                 results.get(i).setTrack(tracks.get(i));
+            }
+        }
+
+        // Handle any tracks that timed out / did not finish in queue
+        if (results.size() < tracks.size()) {
+            Set<Track> resolvedTracks = new HashSet<>();
+            for (DownloadResult dr : results) {
+                if (dr.getTrack() != null) {
+                    resolvedTracks.add(dr.getTrack());
+                }
+            }
+            for (Track t : tracks) {
+                if (!resolvedTracks.contains(t)) {
+                    log.warn("Download timed out or failed to complete for track: {} - {}", t.getArtist(), t.getTitle());
+                    broadcastStatus(t, "error", "Download timed out");
+                    results.add(DownloadResult.builder()
+                            .track(t)
+                            .status("error")
+                            .errorMessage("Download timed out")
+                            .build());
+                }
             }
         }
 
