@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     volumes:
       - type: bind
-        source: ${MUSIC_DIR:-/DATA/Media/Music}
+        source: /DATA/Media/Music
         target: /downloads
     networks:
       - hera-net
@@ -31,10 +31,10 @@ services:
         protocol: tcp
     volumes:
       - type: bind
-        source: ${MUSIC_DIR:-/DATA/Media/Music}
+        source: /DATA/Media/Music
         target: /music/downloads
       - type: bind
-        source: ${CONFIG_DIR:-/DATA/AppData/hera/config}
+        source: /DATA/AppData/hera/config
         target: /config
     environment:
       DOWNTIFY_API_URL: http://downtify:8000
@@ -85,10 +85,10 @@ x-casaos:
     en_US: Automated music recommendation & downloader
   description:
     en_US: "A self-hosted music recommendation and automated downloader service. Hera uses Last.fm to discover music tailored to your taste and downloads tracks via Downtify. Features automated cron downloads, manual library search, format cleanup, and library deduplication."
-  icon: https://raw.githubusercontent.com/athuull/hera/main/hera.png
-  thumbnail: https://raw.githubusercontent.com/athuull/hera/main/hera.png
+  icon: https://cdn.jsdelivr.net/gh/IceWhaleTech/CasaOS-AppStore@main/Apps/Hera/icon.png
+  thumbnail: https://cdn.jsdelivr.net/gh/IceWhaleTech/CasaOS-AppStore@main/Apps/Hera/thumbnail.png
   screenshot_link:
-    - https://raw.githubusercontent.com/athuull/hera/main/Screenshot1.png
-    - https://raw.githubusercontent.com/athuull/hera/main/Screenshot2.png
+    - https://cdn.jsdelivr.net/gh/IceWhaleTech/CasaOS-AppStore@main/Apps/Hera/screenshot-1.png
+    - https://cdn.jsdelivr.net/gh/IceWhaleTech/CasaOS-AppStore@main/Apps/Hera/screenshot-2.png
   port_map: "8080"
   index: /

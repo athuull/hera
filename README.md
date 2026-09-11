@@ -26,7 +26,7 @@ services:
     image: henriquesebastiao/downtify:latest
     container_name: hera-downtify
     volumes:
-      - /path/to/music/downloads:/downloads
+      - ${MUSIC_DIR:-./music}:/downloads
     networks:
       - hera-net
     restart: unless-stopped
@@ -43,8 +43,8 @@ services:
       - MUSIC_DOWNLOAD_DIR=/music/downloads
       - APP_CONFIG_DIR=/config
     volumes:
-      - /path/to/music/downloads:/music/downloads
-      - /path/to/appdata/config:/config
+      - ${MUSIC_DIR:-./music}:/music/downloads
+      - ${CONFIG_DIR:-./config}:/config
     networks:
       - hera-net
     restart: unless-stopped
@@ -54,7 +54,12 @@ networks:
     driver: bridge
 ```
 
-> **Note**: Mount the same host directory to both `downtify`'s `/downloads` and `hera`'s `/music/downloads`.
+By default, downloads save to `./music` and configuration to `./config`. To customize these paths, copy `.env.example` to `.env` (or set `MUSIC_DIR` and `CONFIG_DIR`):
+
+```bash
+cp .env.example .env
+# Edit MUSIC_DIR=/path/to/your/music and CONFIG_DIR=/path/to/your/config
+```
 
 Start with:
 
