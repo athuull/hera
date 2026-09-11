@@ -7,25 +7,52 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('hera-theme') === 'light') {
+                    document.documentElement.setAttribute('data-theme', 'light');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <style>
         :root {
             --bg: #0e1015; --surface: #14171f; --surface-elevated: #1a1e29;
             --border: #262a36; --border-focus: #4e5569;
             --text: #e2e5ec; --text-muted: #828a9c; --text-dim: #545b6d;
+            --heading-color: #ffffff;
             --btn-bg: #1c202b; --btn-border: #2d3345; --btn-hover: #262c3c; --btn-active: #31384c;
-            --pre-bg: #090a0d; --status-ok: #34d399; --status-warn: #fbbf24; --status-err: #f87171;
+            --pre-bg: #090a0d; --pre-text: #abb2bf;
+            --status-ok: #34d399; --status-warn: #fbbf24; --status-err: #f87171;
+            --tr-hover: rgba(255, 255, 255, 0.025);
+            --progress-track-bg: rgba(255, 255, 255, 0.06);
             --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, Monaco, monospace;
         }
+
+        [data-theme="light"] {
+            --bg: #f8fafc; --surface: #ffffff; --surface-elevated: #f1f5f9;
+            --border: #e2e8f0; --border-focus: #94a3b8;
+            --text: #1e293b; --text-muted: #64748b; --text-dim: #94a3b8;
+            --heading-color: #0f172a;
+            --btn-bg: #f1f5f9; --btn-border: #cbd5e1; --btn-hover: #e2e8f0; --btn-active: #cbd5e1;
+            --pre-bg: #f8fafc; --pre-text: #334155;
+            --status-ok: #10b981; --status-warn: #d97706; --status-err: #ef4444;
+            --tr-hover: rgba(0, 0, 0, 0.03);
+            --progress-track-bg: #e2e8f0;
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: var(--font-mono); font-size: 14px; background: var(--bg);
             color: var(--text); padding: 24px; line-height: 1.6; text-transform: lowercase;
             max-width: 1200px; margin: 0 auto;
+            transition: background 0.15s ease, color 0.15s ease;
         }
-        h1, h2, h3 { font-weight: 700; letter-spacing: -0.02em; color: #ffffff; }
+        h1, h2, h3 { font-weight: 700; letter-spacing: -0.02em; color: var(--heading-color); }
         h1 { font-size: 28px; letter-spacing: -0.03em; display: inline-block; }
         h2 {
-            font-size: 18px; margin-bottom: 14px; color: #f0f2f7;
+            font-size: 18px; margin-bottom: 14px; color: var(--heading-color);
             display: flex; align-items: center; gap: 10px;
         }
         h2::before { content: "::"; color: var(--text-dim); font-weight: 600; font-size: 18px; }
@@ -48,8 +75,8 @@
         input:focus, select:focus {
             border-color: var(--border-focus); box-shadow: 0 0 0 1px var(--border-focus); background: var(--surface-elevated);
         }
-        button { cursor: pointer; background: var(--btn-bg); border: 1px solid var(--btn-border); font-weight: 600; }
-        button:hover:not(:disabled) { background: var(--btn-hover); border-color: var(--border-focus); color: #ffffff; }
+        button { cursor: pointer; background: var(--btn-bg); border: 1px solid var(--btn-border); font-weight: 600; color: var(--text); }
+        button:hover:not(:disabled) { background: var(--btn-hover); border-color: var(--border-focus); color: var(--heading-color); }
         button:active:not(:disabled) { background: var(--btn-active); transform: translateY(1px); }
         button:disabled { opacity: 0.45; cursor: not-allowed; }
         input[type="checkbox"] { width: 15px; height: 15px; accent-color: #6366f1; cursor: pointer; vertical-align: middle; }
@@ -58,7 +85,7 @@
         details { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; }
         details[open] { padding-bottom: 16px; }
         summary { cursor: pointer; font-size: 16px; font-weight: 600; color: var(--text); user-select: none; outline: none; }
-        summary:hover { color: #ffffff; }
+        summary:hover { color: var(--heading-color); }
         .settings-content { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); }
         fieldset { border: 0; padding: 0; }
         .setting-row { margin-bottom: 14px; }
@@ -74,7 +101,7 @@
         th, td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
         th { background: var(--surface-elevated); color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-focus); }
         tr:last-child td { border-bottom: 0; }
-        tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
+        tbody tr:hover { background: var(--tr-hover); }
         .tag-pill { font-size: 11.5px; padding: 2px 6px; background: var(--btn-bg); border: 1px solid var(--border); border-radius: 3px; color: var(--text-muted); }
 
         .loading-pulse {
@@ -85,7 +112,7 @@
 
         pre {
             background: var(--pre-bg); border: 1px solid var(--border); border-radius: 6px; padding: 14px;
-            white-space: pre-wrap; word-wrap: break-word; max-height: 280px; overflow-y: auto; color: #abb2bf; font-size: 12.5px; line-height: 1.6;
+            white-space: pre-wrap; word-wrap: break-word; max-height: 280px; overflow-y: auto; color: var(--pre-text); font-size: 12.5px; line-height: 1.6;
         }
         pre::-webkit-scrollbar { width: 6px; height: 6px; }
         pre::-webkit-scrollbar-track { background: transparent; }
@@ -93,7 +120,7 @@
 
         .library-list-box { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; max-height: 320px; overflow-y: auto; }
         .library-list-box ul { list-style: none; }
-        .library-list-box li { padding: 6px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .library-list-box li { padding: 6px 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; font-size: 13px; }
         .library-list-box li::before { content: ">"; color: var(--text-dim); font-weight: bold; }
         .library-list-box li:last-child { border-bottom: 0; }
         #status-text { margin-top: 14px; font-size: 13px; color: var(--status-ok); }
@@ -129,7 +156,7 @@
         }
         .progress-card.active::before {
             background: var(--status-ok);
-            box-shadow: 0 0 8px rgba(52, 211, 153, 0.6);
+            box-shadow: 0 0 8px var(--status-ok);
         }
         .progress-card.active {
             border-color: var(--border-focus);
@@ -165,23 +192,42 @@
             border-radius: 4px;
             padding: 8px 12px;
             font-family: var(--font-mono);
+            width: 100%;
         }
-        .progress-bar-text {
-            font-size: 13px;
-            letter-spacing: 0.06em;
-            white-space: nowrap;
-            overflow: hidden;
+        .progress-track {
             flex: 1;
+            height: 14px;
+            background: var(--progress-track-bg);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
         }
-        .bar-bracket { color: var(--text-dim); }
-        .bar-hashes {
-            color: var(--status-ok);
-            font-weight: 700;
-            text-shadow: 0 0 6px rgba(52, 211, 153, 0.35);
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #059669, #34d399);
+            border-radius: 2px;
+            transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 8px rgba(52, 211, 153, 0.35);
+            position: relative;
         }
-        .bar-dots {
-            color: var(--text-dim);
-            opacity: 0.35;
+        [data-theme="light"] .progress-fill {
+            background: linear-gradient(90deg, #16a34a, #22c55e);
+            box-shadow: 0 0 6px rgba(34, 197, 94, 0.35);
+        }
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 4px,
+                rgba(0, 0, 0, 0.12) 4px,
+                rgba(0, 0, 0, 0.12) 6px
+            );
+            pointer-events: none;
         }
         .progress-bar-pct {
             font-size: 13px;
@@ -238,6 +284,7 @@
     </div>
     <div class="header-actions">
         <div class="status-bar">ws: <span id="ws-text" class="status-pill connecting">[connecting...]</span></div>
+        <button id="theme-toggle-btn" onclick="toggleTheme()" title="toggle light / dark mode">[light mode]</button>
         <button onclick="triggerSchedule()" title="trigger scheduled auto-download right now">[auto-download now]</button>
     </div>
 </header>
@@ -361,7 +408,9 @@
         </div>
         <div id="track-name-display" class="progress-track-name" title="no active download">no active download</div>
         <div class="progress-bar-container">
-            <span id="track-progress-bar" class="progress-bar-text"><span class="bar-bracket">[</span><span class="bar-dots">............................</span><span class="bar-bracket">]</span></span>
+            <div class="progress-track" id="track-progress-track">
+                <div id="track-progress-fill" class="progress-fill" style="width: 0%;"></div>
+            </div>
             <span id="track-progress-pct" class="progress-bar-pct">0%</span>
         </div>
         <div id="track-subtext" class="progress-subtext">waiting for download job...</div>
@@ -375,7 +424,9 @@
         </div>
         <div id="batch-count-display" class="progress-track-name">0 / 0 tracks</div>
         <div class="progress-bar-container">
-            <span id="batch-progress-bar" class="progress-bar-text"><span class="bar-bracket">[</span><span class="bar-dots">............................</span><span class="bar-bracket">]</span></span>
+            <div class="progress-track" id="batch-progress-track">
+                <div id="batch-progress-fill" class="progress-fill" style="width: 0%;"></div>
+            </div>
             <span id="batch-progress-pct" class="progress-bar-pct">0%</span>
         </div>
         <div id="batch-subtext" class="progress-subtext">no active batch</div>
@@ -425,26 +476,41 @@
         currentStatus: 'idle'
     };
 
-    function renderHashBarHTML(percent, totalChars = 28) {
-        const clamped = Math.max(0, Math.min(100, Math.round(percent || 0)));
-        const filledCount = Math.round((clamped / 100) * totalChars);
-        const emptyCount = Math.max(0, totalChars - filledCount);
-        const filledHashes = '#'.repeat(filledCount);
-        const emptyDots = '.'.repeat(emptyCount);
-        return `<span class="bar-bracket">[</span><span class="bar-hashes">${filledHashes}</span><span class="bar-dots">${emptyDots}</span><span class="bar-bracket">]</span>`;
+    function initTheme() {
+        const saved = localStorage.getItem('hera-theme') || 'dark';
+        applyTheme(saved);
+    }
+
+    function applyTheme(theme) {
+        const btn = document.getElementById('theme-toggle-btn');
+        if (theme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+            if (btn) btn.innerText = '[dark mode]';
+            localStorage.setItem('hera-theme', 'light');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+            if (btn) btn.innerText = '[light mode]';
+            localStorage.setItem('hera-theme', 'dark');
+        }
+    }
+
+    function toggleTheme() {
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        applyTheme(isLight ? 'dark' : 'light');
     }
 
     function updateTrackUI(name, percent, statusText, subtext, statusType = 'active') {
         const nameElem = document.getElementById('track-name-display');
-        const barElem = document.getElementById('track-progress-bar');
+        const fillElem = document.getElementById('track-progress-fill');
         const pctElem = document.getElementById('track-progress-pct');
         const pillElem = document.getElementById('track-status-pill');
         const subElem = document.getElementById('track-subtext');
         const cardElem = document.getElementById('card-track');
 
+        const clamped = Math.max(0, Math.min(100, Math.round(percent || 0)));
         if (nameElem && name) { nameElem.innerText = name; nameElem.title = name; }
-        if (barElem) barElem.innerHTML = renderHashBarHTML(percent);
-        if (pctElem) pctElem.innerText = `${Math.round(percent)}%`;
+        if (fillElem) fillElem.style.width = `${clamped}%`;
+        if (pctElem) pctElem.innerText = `${clamped}%`;
         if (pillElem && statusText) {
             pillElem.className = `status-pill ${statusType}`;
             pillElem.innerText = statusText;
@@ -458,15 +524,16 @@
 
     function updateBatchUI(completed, total, smoothPercent, subtext, statusType = 'active') {
         const countElem = document.getElementById('batch-count-display');
-        const barElem = document.getElementById('batch-progress-bar');
+        const fillElem = document.getElementById('batch-progress-fill');
         const pctElem = document.getElementById('batch-progress-pct');
         const pillElem = document.getElementById('batch-status-pill');
         const subElem = document.getElementById('batch-subtext');
         const cardElem = document.getElementById('card-batch');
 
+        const clamped = Math.max(0, Math.min(100, Math.round(smoothPercent || 0)));
         if (countElem) countElem.innerText = `${completed} / ${total} tracks`;
-        if (barElem) barElem.innerHTML = renderHashBarHTML(smoothPercent);
-        if (pctElem) pctElem.innerText = `${Math.round(smoothPercent)}%`;
+        if (fillElem) fillElem.style.width = `${clamped}%`;
+        if (pctElem) pctElem.innerText = `${clamped}%`;
         if (pillElem) {
             pillElem.className = `status-pill ${statusType}`;
             pillElem.innerText = statusType === 'active' ? '[● running]' : (statusType === 'connected' ? '[✓ complete]' : '[idle]');
@@ -479,6 +546,9 @@
     }
 
     function startBatch(total) {
+        if (batchState.active && batchState.total === total && batchState.completed === 0) {
+            return;
+        }
         batchState.active = true;
         batchState.total = Math.max(1, total || 1);
         batchState.completed = 0;
@@ -532,7 +602,9 @@
 
     function handleWSMessage(data) {
         if (data.type === 'batch_start') {
-            startBatch(data.total);
+            if (!batchState.active || batchState.total !== data.total) {
+                startBatch(data.total);
+            }
             return;
         }
 
@@ -728,7 +800,7 @@
             const t = r.track || {};
             html += `<tr>
                 <td style="text-align: center;"><input type="checkbox" class="track-check" data-index="${i}" onchange="updateSelectedCount()"></td>
-                <td style="font-weight: 600; color: #fff;">${escapeHtml(t.artist)}</td>
+                <td style="font-weight: 600; color: var(--heading-color);">${escapeHtml(t.artist)}</td>
                 <td>${escapeHtml(t.title)}</td>
                 <td><span class="tag-pill">${escapeHtml(r.sourceArtist || 'algorithm')}</span></td>
                 <td>${Math.round((r.matchScore || 0.5) * 100)}%</td>
@@ -875,6 +947,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+        initTheme();
         populateTimeDropdowns();
         connectWS();
         toggleSeedInput();
