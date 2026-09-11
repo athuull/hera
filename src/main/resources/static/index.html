@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>hera</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --bg: #0e1015;
@@ -47,30 +49,34 @@
         }
 
         /* typography */
-        h1, h2, h3 {
+        h1,
+        h2,
+        h3 {
             font-weight: 700;
             letter-spacing: -0.02em;
             color: #ffffff;
         }
 
         h1 {
-            font-size: 22px;
+            font-size: 28px;
+            letter-spacing: -0.03em;
             display: inline-block;
         }
 
         h2 {
-            font-size: 15px;
-            margin-bottom: 12px;
+            font-size: 18px;
+            margin-bottom: 14px;
             color: #f0f2f7;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
 
         h2::before {
             content: "::";
             color: var(--text-dim);
-            font-weight: normal;
+            font-weight: 600;
+            font-size: 18px;
         }
 
         hr {
@@ -97,11 +103,25 @@
             font-weight: 600;
         }
 
-        .status-pill.connected { color: var(--status-ok); }
-        .status-pill.disconnected { color: var(--status-err); }
-        .status-pill.connecting { color: var(--status-warn); }
-        .status-pill.active { color: var(--status-warn); }
-        .status-pill.idle { color: var(--text-dim); }
+        .status-pill.connected {
+            color: var(--status-ok);
+        }
+
+        .status-pill.disconnected {
+            color: var(--status-err);
+        }
+
+        .status-pill.connecting {
+            color: var(--status-warn);
+        }
+
+        .status-pill.active {
+            color: var(--status-warn);
+        }
+
+        .status-pill.idle {
+            color: var(--text-dim);
+        }
 
         .loading-pulse {
             display: inline-flex;
@@ -131,7 +151,9 @@
         }
 
         /* forms and controls */
-        input, select, button {
+        input,
+        select,
+        button {
             font-family: var(--font-mono);
             font-size: 13.5px;
             border: 1px solid var(--btn-border);
@@ -144,7 +166,8 @@
             transition: all 0.15s ease;
         }
 
-        input:focus, select:focus {
+        input:focus,
+        select:focus {
             border-color: var(--border-focus);
             box-shadow: 0 0 0 1px var(--border-focus);
             background: var(--surface-elevated);
@@ -199,6 +222,7 @@
 
         summary {
             cursor: pointer;
+            font-size: 16px;
             font-weight: 600;
             color: var(--text);
             user-select: none;
@@ -278,7 +302,8 @@
             font-size: 13px;
         }
 
-        th, td {
+        th,
+        td {
             padding: 10px 14px;
             border-bottom: 1px solid var(--border);
             vertical-align: middle;
@@ -384,419 +409,460 @@
             font-size: 13px;
             color: var(--status-ok);
         }
+
+        /* footer */
+        footer {
+            margin-top: 36px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            color: var(--text-dim);
+            text-decoration: none;
+            transition: color 0.15s ease, transform 0.15s ease;
+        }
+
+        .github-link:hover {
+            color: var(--text);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
+
 <body>
 
-<header class="header-bar">
-    <div>
-        <h1>hera</h1>
-        <span style="color: var(--text-dim); margin-left: 8px;">// music recommendations &amp; downloader</span>
+    <header class="header-bar">
+        <div>
+            <h1>hera</h1>
+            <span style="color: var(--text-dim); margin-left: 10px; font-size: 14.5px;">// music recommendations &amp;
+                downloader</span>
+        </div>
+        <div class="header-actions">
+            <div class="status-bar">ws: <span id="ws-text" class="status-pill connecting">[connecting...]</span></div>
+            <button onclick="triggerSchedule()" title="trigger scheduled auto-download right now">[auto-download
+                now]</button>
+        </div>
+    </header>
+
+    <hr>
+
+    <!-- settings -->
+    <details id="settings-details">
+        <summary>settings</summary>
+        <div class="settings-content">
+            <fieldset>
+                <div class="setting-row">
+                    <label>last.fm api key:</label>
+                    <input type="password" id="set-lastfm-key" style="width: 100%; max-width: 500px;"
+                        placeholder="last.fm api key">
+                </div>
+
+                <div class="setting-row">
+                    <label>last.fm username:</label>
+                    <input type="text" id="set-lastfm-user" style="width: 100%; max-width: 320px;"
+                        placeholder="username">
+                </div>
+
+                <div class="setting-row">
+                    <label>scheduled daily limit (nightly):</label>
+                    <input type="number" id="set-max-downloads" min="1" max="500" style="width: 90px;">
+                </div>
+
+                <div class="setting-row">
+                    <label>auto-download strategy:</label>
+                    <select id="set-strategy">
+                        <option value="HYBRID">hybrid (my profile)</option>
+                        <option value="USER_PERSONALIZED">my top artists</option>
+                        <option value="NOW_LISTENING">now listening</option>
+                        <option value="GENRE_BASED">my top genres</option>
+                    </select>
+                </div>
+
+                <div class="setting-row">
+                    <label>auto-download time (24h):</label>
+                    <select id="set-cron-hour"></select>
+                    <span style="margin: 0 4px;">:</span>
+                    <select id="set-cron-minute"></select>
+                </div>
+
+                <div class="setting-row">
+                    <label>format &amp; bitrate:</label>
+                    <select id="set-format">
+                        <option value="mp3">mp3</option>
+                        <option value="flac">flac</option>
+                        <option value="m4a">m4a</option>
+                        <option value="opus">opus</option>
+                    </select>
+                    <select id="set-bitrate" style="margin-left: 6px;">
+                        <option value="320">320</option>
+                        <option value="256">256</option>
+                        <option value="192">192</option>
+                        <option value="128">128</option>
+                    </select>
+                </div>
+
+                <div style="margin-top: 14px;">
+                    <label class="setting-toggle" for="set-organize">
+                        <input type="checkbox" id="set-organize">
+                        <span>organize by artist</span>
+                    </label>
+
+                    <label class="setting-toggle" for="set-lyrics">
+                        <input type="checkbox" id="set-lyrics">
+                        <span>download lyrics (.lrc)</span>
+                    </label>
+                </div>
+
+                <div style="margin-top: 16px;">
+                    <button onclick="saveSettings()">[save settings]</button>
+                    <button onclick="triggerCleanup()" style="margin-left: 8px;">[cleanup webm]</button>
+                </div>
+            </fieldset>
+        </div>
+    </details>
+
+    <hr>
+
+    <!-- search -->
+    <h2>find music</h2>
+    <div class="search-panel">
+        <div class="search-group">
+            <label>strategy:</label>
+            <select id="strategy" onchange="toggleSeedInput()">
+                <option value="HYBRID">hybrid (my profile)</option>
+                <option value="USER_PERSONALIZED">my top artists</option>
+                <option value="NOW_LISTENING">now listening</option>
+                <option value="GENRE_BASED">my top genres</option>
+                <option value="ARTIST_SIMILARITY">by artist</option>
+                <option value="TRACK_SIMILARITY">by track</option>
+                <option value="TAG_BASED">by tag</option>
+            </select>
+        </div>
+
+        <div class="search-group">
+            <label>limit:</label>
+            <input type="number" id="limit" value="20" min="1" max="100" style="width: 70px;">
+        </div>
+
+        <div id="seed-group" class="search-group hidden">
+            <label id="seed-label">search term:</label>
+            <input type="text" id="seed" style="width: 280px;">
+        </div>
+
+        <button id="search-btn" onclick="searchRecommendations()">[search]</button>
     </div>
-    <div class="header-actions">
-        <div class="status-bar">ws: <span id="ws-text" class="status-pill connecting">[connecting...]</span></div>
-        <button onclick="triggerSchedule()" title="trigger scheduled auto-download right now">[auto-download now]</button>
+
+    <hr>
+
+    <!-- results -->
+    <h2>recommendations</h2>
+    <div id="results-actions" class="results-toolbar hidden">
+        <button onclick="selectAll(true)">[select all]</button>
+        <button onclick="selectAll(false)">[deselect all]</button>
+        <button id="download-selected-btn" onclick="downloadSelected()">[download selected]</button>
+        <span id="selected-count-label" style="color: var(--text-muted); margin-left: 8px;"></span>
     </div>
-</header>
-
-<hr>
-
-<!-- settings -->
-<details id="settings-details">
-    <summary>settings</summary>
-    <div class="settings-content">
-        <fieldset>
-            <div class="setting-row">
-                <label>last.fm api key:</label>
-                <input type="password" id="set-lastfm-key" style="width: 100%; max-width: 500px;" placeholder="last.fm api key">
-            </div>
-
-            <div class="setting-row">
-                <label>last.fm username:</label>
-                <input type="text" id="set-lastfm-user" style="width: 100%; max-width: 320px;" placeholder="username">
-            </div>
-
-            <div class="setting-row">
-                <label>scheduled daily limit (nightly):</label>
-                <input type="number" id="set-max-downloads" min="1" max="500" style="width: 90px;">
-            </div>
-
-            <div class="setting-row">
-                <label>auto-download strategy:</label>
-                <select id="set-strategy">
-                    <option value="HYBRID">hybrid (my profile)</option>
-                    <option value="USER_PERSONALIZED">my top artists</option>
-                    <option value="NOW_LISTENING">now listening</option>
-                    <option value="GENRE_BASED">my top genres</option>
-                </select>
-            </div>
-
-            <div class="setting-row">
-                <label>auto-download time (24h):</label>
-                <select id="set-cron-hour"></select>
-                <span style="margin: 0 4px;">:</span>
-                <select id="set-cron-minute"></select>
-            </div>
-
-            <div class="setting-row">
-                <label>format &amp; bitrate:</label>
-                <select id="set-format">
-                    <option value="mp3">mp3</option>
-                    <option value="flac">flac</option>
-                    <option value="m4a">m4a</option>
-                    <option value="opus">opus</option>
-                </select>
-                <select id="set-bitrate" style="margin-left: 6px;">
-                    <option value="320">320</option>
-                    <option value="256">256</option>
-                    <option value="192">192</option>
-                    <option value="128">128</option>
-                </select>
-            </div>
-
-            <div style="margin-top: 14px;">
-                <label class="setting-toggle" for="set-organize">
-                    <input type="checkbox" id="set-organize">
-                    <span>organize by artist</span>
-                </label>
-
-                <label class="setting-toggle" for="set-lyrics">
-                    <input type="checkbox" id="set-lyrics">
-                    <span>download lyrics (.lrc)</span>
-                </label>
-            </div>
-
-            <div style="margin-top: 16px;">
-                <button onclick="saveSettings()">[save settings]</button>
-                <button onclick="triggerCleanup()" style="margin-left: 8px;">[cleanup webm]</button>
-            </div>
-        </fieldset>
-    </div>
-</details>
-
-<hr>
-
-<!-- search -->
-<h2>find music</h2>
-<div class="search-panel">
-    <div class="search-group">
-        <label>strategy:</label>
-        <select id="strategy" onchange="toggleSeedInput()">
-            <option value="HYBRID">hybrid (my profile)</option>
-            <option value="USER_PERSONALIZED">my top artists</option>
-            <option value="NOW_LISTENING">now listening</option>
-            <option value="GENRE_BASED">my top genres</option>
-            <option value="ARTIST_SIMILARITY">by artist</option>
-            <option value="TRACK_SIMILARITY">by track</option>
-            <option value="TAG_BASED">by tag</option>
-        </select>
+    <div id="results-table">
+        <p style="color: var(--text-muted);">no results yet.</p>
     </div>
 
-    <div class="search-group">
-        <label>limit:</label>
-        <input type="number" id="limit" value="20" min="1" max="100" style="width: 70px;">
+    <hr>
+
+    <!-- progress -->
+    <h2>download progress <span id="download-status" class="status-pill idle"
+            style="font-size: 12px; font-weight: normal; margin-left: 6px;">[idle]</span></h2>
+    <pre id="progress-feed">no active downloads.</pre>
+    <div style="margin-top: 10px;">
+        <button onclick="clearProgress()">[clear log]</button>
     </div>
 
-    <div id="seed-group" class="search-group hidden">
-        <label id="seed-label">search term:</label>
-        <input type="text" id="seed" style="width: 280px;">
+    <hr>
+
+    <!-- library -->
+    <h2>library <span id="library-count" style="color: var(--text-dim); font-size: 13px;"></span></h2>
+    <div class="library-toolbar">
+        <button onclick="refreshLibrary()">[refresh library]</button>
+        <input type="text" id="library-filter" placeholder="filter tracks..." oninput="filterLibrary()"
+            style="width: 220px;">
+    </div>
+    <div id="library-list" class="library-list-box">
+        <p style="color: var(--text-muted);">click refresh to load.</p>
     </div>
 
-    <button id="search-btn" onclick="searchRecommendations()">[search]</button>
-</div>
+    <div id="status-text"></div>
 
-<hr>
+    <footer>
+        <a href="https://github.com/athuull/hera" target="_blank" rel="noopener noreferrer" class="github-link"
+            title="github: athuull/hera">
+            <svg height="22" width="22" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path
+                    d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z">
+                </path>
+            </svg>
+        </a>
+    </footer>
 
-<!-- results -->
-<h2>recommendations</h2>
-<div id="results-actions" class="results-toolbar hidden">
-    <button onclick="selectAll(true)">[select all]</button>
-    <button onclick="selectAll(false)">[deselect all]</button>
-    <button id="download-selected-btn" onclick="downloadSelected()">[download selected]</button>
-    <span id="selected-count-label" style="color: var(--text-muted); margin-left: 8px;"></span>
-</div>
-<div id="results-table">
-    <p style="color: var(--text-muted);">no results yet.</p>
-</div>
+    <script>
+        let recommendations = [];
+        let libraryData = [];
+        let ws = null;
+        let lastProgressLog = {};
 
-<hr>
+        // ─── populate time dropdowns ───
+        function populateTimeDropdowns() {
+            const hourSelect = document.getElementById('set-cron-hour');
+            const minuteSelect = document.getElementById('set-cron-minute');
+            hourSelect.innerHTML = '';
+            minuteSelect.innerHTML = '';
 
-<!-- progress -->
-<h2>download progress <span id="download-status" class="status-pill idle" style="font-size: 12px; font-weight: normal; margin-left: 6px;">[idle]</span></h2>
-<pre id="progress-feed">no active downloads.</pre>
-<div style="margin-top: 10px;">
-    <button onclick="clearProgress()">[clear log]</button>
-</div>
+            for (let i = 0; i < 24; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.text = i.toString().padStart(2, '0');
+                hourSelect.add(opt);
+            }
 
-<hr>
-
-<!-- library -->
-<h2>library <span id="library-count" style="color: var(--text-dim); font-size: 13px;"></span></h2>
-<div class="library-toolbar">
-    <button onclick="refreshLibrary()">[refresh library]</button>
-    <input type="text" id="library-filter" placeholder="filter tracks..." oninput="filterLibrary()" style="width: 220px;">
-</div>
-<div id="library-list" class="library-list-box">
-    <p style="color: var(--text-muted);">click refresh to load.</p>
-</div>
-
-<div id="status-text"></div>
-
-<script>
-    let recommendations = [];
-    let libraryData = [];
-    let ws = null;
-    let lastProgressLog = {};
-
-    // ─── populate time dropdowns ───
-    function populateTimeDropdowns() {
-        const hourSelect = document.getElementById('set-cron-hour');
-        const minuteSelect = document.getElementById('set-cron-minute');
-        hourSelect.innerHTML = '';
-        minuteSelect.innerHTML = '';
-
-        for (let i = 0; i < 24; i++) {
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.text = i.toString().padStart(2, '0');
-            hourSelect.add(opt);
+            [0, 15, 30, 45].forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.text = m.toString().padStart(2, '0');
+                minuteSelect.add(opt);
+            });
         }
 
-        [0, 15, 30, 45].forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m;
-            opt.text = m.toString().padStart(2, '0');
-            minuteSelect.add(opt);
-        });
-    }
+        // parse existing cron into hour/minute
+        function parseCron(cron) {
+            if (!cron) return { hour: 2, minute: 0 };
+            const parts = cron.trim().split(/\s+/);
+            if (parts.length >= 3) {
+                return {
+                    minute: parseInt(parts[1]) || 0,
+                    hour: parseInt(parts[2]) || 0
+                };
+            }
+            return { minute: 0, hour: 2 };
+        }
 
-    // parse existing cron into hour/minute
-    function parseCron(cron) {
-        if (!cron) return { hour: 2, minute: 0 };
-        const parts = cron.trim().split(/\s+/);
-        if (parts.length >= 3) {
-            return {
-                minute: parseInt(parts[1]) || 0,
-                hour: parseInt(parts[2]) || 0
+        // build cron from hour/minute dropdowns
+        function buildCron() {
+            const hour = document.getElementById('set-cron-hour').value;
+            const minute = document.getElementById('set-cron-minute').value;
+            return `0 ${minute} ${hour} * * *`;
+        }
+
+        // ─── websocket ───
+        function connectWS() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/progress`;
+            const wsElem = document.getElementById('ws-text');
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                wsElem.className = 'status-pill connected';
+                wsElem.innerText = '[connected]';
+            };
+
+            ws.onclose = () => {
+                wsElem.className = 'status-pill disconnected';
+                wsElem.innerText = '[disconnected]';
+                setTimeout(connectWS, 3000);
+            };
+
+            ws.onerror = () => {
+                wsElem.className = 'status-pill disconnected';
+                wsElem.innerText = '[error]';
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleWSMessage(data);
+                } catch (e) {
+                    logProgress("ws: " + event.data);
+                }
             };
         }
-        return { minute: 0, hour: 2 };
-    }
 
-    // build cron from hour/minute dropdowns
-    function buildCron() {
-        const hour = document.getElementById('set-cron-hour').value;
-        const minute = document.getElementById('set-cron-minute').value;
-        return `0 ${minute} ${hour} * * *`;
-    }
-
-    // ─── websocket ───
-    function connectWS() {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/progress`;
-        const wsElem = document.getElementById('ws-text');
-
-        ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => {
-            wsElem.className = 'status-pill connected';
-            wsElem.innerText = '[connected]';
-        };
-
-        ws.onclose = () => {
-            wsElem.className = 'status-pill disconnected';
-            wsElem.innerText = '[disconnected]';
-            setTimeout(connectWS, 3000);
-        };
-
-        ws.onerror = () => {
-            wsElem.className = 'status-pill disconnected';
-            wsElem.innerText = '[error]';
-        };
-
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                handleWSMessage(data);
-            } catch (e) {
-                logProgress("ws: " + event.data);
+        function setDownloadStatus(active, text) {
+            const elem = document.getElementById('download-status');
+            if (!elem) return;
+            if (active) {
+                elem.className = 'status-pill active';
+                elem.innerText = text || '[● downloading...]';
+            } else {
+                elem.className = text && text.includes('✓') ? 'status-pill connected' : 'status-pill idle';
+                elem.innerText = text || '[idle]';
             }
-        };
-    }
-
-    function setDownloadStatus(active, text) {
-        const elem = document.getElementById('download-status');
-        if (!elem) return;
-        if (active) {
-            elem.className = 'status-pill active';
-            elem.innerText = text || '[● downloading...]';
-        } else {
-            elem.className = text && text.includes('✓') ? 'status-pill connected' : 'status-pill idle';
-            elem.innerText = text || '[idle]';
         }
-    }
 
-    function handleWSMessage(data) {
-        if (data.type === 'batch_complete') {
-            const msg = `batch complete: ${data.downloaded} downloaded, ${data.failed} failed`;
-            logProgress(msg);
-            refreshLibrary();
-            setDownloadStatus(false, '[✓ complete]');
-            setTimeout(() => {
-                setDownloadStatus(false, '[idle]');
-            }, 4000);
-            const dlBtn = document.getElementById('download-selected-btn');
-            if (dlBtn) {
-                dlBtn.disabled = false;
-                dlBtn.innerText = '[download selected]';
+        function handleWSMessage(data) {
+            if (data.type === 'batch_complete') {
+                const msg = `batch complete: ${data.downloaded} downloaded, ${data.failed} failed`;
+                logProgress(msg);
+                refreshLibrary();
+                setDownloadStatus(false, '[✓ complete]');
+                setTimeout(() => {
+                    setDownloadStatus(false, '[idle]');
+                }, 4000);
+                const dlBtn = document.getElementById('download-selected-btn');
+                if (dlBtn) {
+                    dlBtn.disabled = false;
+                    dlBtn.innerText = '[download selected]';
+                }
+                return;
             }
-            return;
-        }
 
-        const song = data.song || {};
-        const songName = (song.artist && song.title) ? `${song.artist} - ${song.title}` :
-                         song.name || data.filename || data.message || 'unknown track';
-        const status = data.status || 'unknown';
-        const progress = data.progress || 0;
+            const song = data.song || {};
+            const songName = (song.artist && song.title) ? `${song.artist} - ${song.title}` :
+                song.name || data.filename || data.message || 'unknown track';
+            const status = data.status || 'unknown';
+            const progress = data.progress || 0;
 
-        if (status === 'downloading' || status === 'queued') {
-            setDownloadStatus(true, `[● ${status}: ${Math.round(progress)}%]`);
-        }
-
-        const lastLog = lastProgressLog[songName];
-        if (!lastLog || lastLog.status !== status || Math.floor(progress / 10) > Math.floor(lastLog.progress / 10)) {
-            logProgress(`[${status}] ${songName} (${Math.round(progress)}%)`);
-            lastProgressLog[songName] = { status, progress };
-        }
-    }
-
-    function logProgress(message) {
-        const feed = document.getElementById('progress-feed');
-        if (feed.innerText === 'no active downloads.') {
-            feed.innerText = message;
-        } else {
-            feed.innerText = message + "\n" + feed.innerText;
-        }
-    }
-
-    function clearProgress() {
-        document.getElementById('progress-feed').innerText = 'no active downloads.';
-        lastProgressLog = {};
-    }
-
-    // ─── ui logic for seed input ───
-    function toggleSeedInput() {
-        const strategy = document.getElementById('strategy').value;
-        const seedGroup = document.getElementById('seed-group');
-        const seedLabel = document.getElementById('seed-label');
-        const seedInput = document.getElementById('seed');
-
-        const manualStrategies = ['ARTIST_SIMILARITY', 'TRACK_SIMILARITY', 'TAG_BASED'];
-
-        if (manualStrategies.includes(strategy)) {
-            seedGroup.classList.remove('hidden');
-            if (strategy === 'ARTIST_SIMILARITY') {
-                seedLabel.innerText = 'artist name:';
-                seedInput.placeholder = 'radiohead';
-            } else if (strategy === 'TRACK_SIMILARITY') {
-                seedLabel.innerText = 'artist - track:';
-                seedInput.placeholder = 'radiohead - paranoid android';
-            } else if (strategy === 'TAG_BASED') {
-                seedLabel.innerText = 'genre tag:';
-                seedInput.placeholder = 'shoegaze';
+            if (status === 'downloading' || status === 'queued') {
+                setDownloadStatus(true, `[● ${status}: ${Math.round(progress)}%]`);
             }
-        } else {
-            seedGroup.classList.add('hidden');
-            seedInput.value = '';
-        }
-    }
 
-    // ─── api calls ───
-    async function searchRecommendations() {
-        const strategy = document.getElementById('strategy').value;
-        const seed = document.getElementById('seed').value.trim();
-        const limit = parseInt(document.getElementById('limit').value) || 20;
-
-        const manualStrategies = ['ARTIST_SIMILARITY', 'TRACK_SIMILARITY', 'TAG_BASED'];
-        if (manualStrategies.includes(strategy) && !seed) {
-            alert('enter a search term');
-            return;
-        }
-
-        const btn = document.getElementById('search-btn');
-        btn.disabled = true;
-        btn.innerText = '[searching...]';
-
-        const tableContainer = document.getElementById('results-table');
-        const actions = document.getElementById('results-actions');
-        actions.classList.add('hidden');
-
-        const spinnerFrames = ['[⠋]', '[⠙]', '[⠹]', '[⠸]', '[⠼]', '[⠴]', '[⠦]', '[⠧]', '[⠇]', '[⠏]'];
-        let frameIdx = 0;
-        const searchLabel = strategy.toLowerCase().replace(/_/g, ' ');
-        tableContainer.innerHTML = `<div class="loading-pulse"><span id="search-spinner" class="spinner-frame">${spinnerFrames[0]}</span> <span>searching tracks via ${escapeHtml(searchLabel)}...</span></div>`;
-
-        const spinInterval = setInterval(() => {
-            frameIdx = (frameIdx + 1) % spinnerFrames.length;
-            const elem = document.getElementById('search-spinner');
-            if (elem) elem.innerText = spinnerFrames[frameIdx];
-        }, 80);
-
-        try {
-            const response = await fetch(buildSearchUrl(strategy, seed, limit));
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.message || `http ${response.status}`);
+            const lastLog = lastProgressLog[songName];
+            if (!lastLog || lastLog.status !== status || Math.floor(progress / 10) > Math.floor(lastLog.progress / 10)) {
+                logProgress(`[${status}] ${songName} (${Math.round(progress)}%)`);
+                lastProgressLog[songName] = { status, progress };
             }
-            recommendations = await response.json();
-            renderResults(recommendations);
-        } catch (e) {
-            tableContainer.innerHTML = `<p style="color: var(--status-err);">search failed: ${escapeHtml(e.message)}</p>`;
-        } finally {
-            clearInterval(spinInterval);
-            btn.disabled = false;
-            btn.innerText = '[search]';
         }
-    }
 
-    function buildSearchUrl(strategy, seed, limit) {
-        switch (strategy) {
-            case 'USER_PERSONALIZED':
-                return `/api/recommend/personal?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
-            case 'NOW_LISTENING':
-                return `/api/recommend/now?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
-            case 'GENRE_BASED':
-                return `/api/recommend/genres?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
-            case 'HYBRID':
-                return `/api/recommend/hybrid?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
-            case 'TRACK_SIMILARITY':
-                const splitIdx = seed.indexOf(' - ');
-                if (splitIdx === -1) { alert('format: artist - track'); throw new Error('invalid format'); }
-                const artist = seed.substring(0, splitIdx).trim();
-                const track = seed.substring(splitIdx + 3).trim();
-                return `/api/recommend/track?artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&limit=${limit}`;
-            case 'TAG_BASED':
-                return `/api/recommend/tag?tag=${encodeURIComponent(seed)}&limit=${limit}`;
-            case 'ARTIST_SIMILARITY':
-                return `/api/recommend?artist=${encodeURIComponent(seed)}&limit=${limit}`;
-            default:
-                return `/api/recommend?artist=${encodeURIComponent(seed)}&limit=${limit}`;
+        function logProgress(message) {
+            const feed = document.getElementById('progress-feed');
+            if (feed.innerText === 'no active downloads.') {
+                feed.innerText = message;
+            } else {
+                feed.innerText = message + "\n" + feed.innerText;
+            }
         }
-    }
 
-    function renderResults(recs) {
-        const tableContainer = document.getElementById('results-table');
-        const actions = document.getElementById('results-actions');
+        function clearProgress() {
+            document.getElementById('progress-feed').innerText = 'no active downloads.';
+            lastProgressLog = {};
+        }
 
-        if (!recs || recs.length === 0) {
-            tableContainer.innerHTML = '<p style="color: var(--text-muted);">no recommendations found. check settings.</p>';
+        // ─── ui logic for seed input ───
+        function toggleSeedInput() {
+            const strategy = document.getElementById('strategy').value;
+            const seedGroup = document.getElementById('seed-group');
+            const seedLabel = document.getElementById('seed-label');
+            const seedInput = document.getElementById('seed');
+
+            const manualStrategies = ['ARTIST_SIMILARITY', 'TRACK_SIMILARITY', 'TAG_BASED'];
+
+            if (manualStrategies.includes(strategy)) {
+                seedGroup.classList.remove('hidden');
+                if (strategy === 'ARTIST_SIMILARITY') {
+                    seedLabel.innerText = 'artist name:';
+                    seedInput.placeholder = 'radiohead';
+                } else if (strategy === 'TRACK_SIMILARITY') {
+                    seedLabel.innerText = 'artist - track:';
+                    seedInput.placeholder = 'radiohead - paranoid android';
+                } else if (strategy === 'TAG_BASED') {
+                    seedLabel.innerText = 'genre tag:';
+                    seedInput.placeholder = 'shoegaze';
+                }
+            } else {
+                seedGroup.classList.add('hidden');
+                seedInput.value = '';
+            }
+        }
+
+        // ─── api calls ───
+        async function searchRecommendations() {
+            const strategy = document.getElementById('strategy').value;
+            const seed = document.getElementById('seed').value.trim();
+            const limit = parseInt(document.getElementById('limit').value) || 20;
+
+            const manualStrategies = ['ARTIST_SIMILARITY', 'TRACK_SIMILARITY', 'TAG_BASED'];
+            if (manualStrategies.includes(strategy) && !seed) {
+                alert('enter a search term');
+                return;
+            }
+
+            const btn = document.getElementById('search-btn');
+            btn.disabled = true;
+            btn.innerText = '[searching...]';
+
+            const tableContainer = document.getElementById('results-table');
+            const actions = document.getElementById('results-actions');
             actions.classList.add('hidden');
-            return;
+
+            const spinnerFrames = ['[⠋]', '[⠙]', '[⠹]', '[⠸]', '[⠼]', '[⠴]', '[⠦]', '[⠧]', '[⠇]', '[⠏]'];
+            let frameIdx = 0;
+            const searchLabel = strategy.toLowerCase().replace(/_/g, ' ');
+            tableContainer.innerHTML = `<div class="loading-pulse"><span id="search-spinner" class="spinner-frame">${spinnerFrames[0]}</span> <span>searching tracks via ${escapeHtml(searchLabel)}...</span></div>`;
+
+            const spinInterval = setInterval(() => {
+                frameIdx = (frameIdx + 1) % spinnerFrames.length;
+                const elem = document.getElementById('search-spinner');
+                if (elem) elem.innerText = spinnerFrames[frameIdx];
+            }, 80);
+
+            try {
+                const response = await fetch(buildSearchUrl(strategy, seed, limit));
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.message || `http ${response.status}`);
+                }
+                recommendations = await response.json();
+                renderResults(recommendations);
+            } catch (e) {
+                tableContainer.innerHTML = `<p style="color: var(--status-err);">search failed: ${escapeHtml(e.message)}</p>`;
+            } finally {
+                clearInterval(spinInterval);
+                btn.disabled = false;
+                btn.innerText = '[search]';
+            }
         }
 
-        actions.classList.remove('hidden');
+        function buildSearchUrl(strategy, seed, limit) {
+            switch (strategy) {
+                case 'USER_PERSONALIZED':
+                    return `/api/recommend/personal?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
+                case 'NOW_LISTENING':
+                    return `/api/recommend/now?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
+                case 'GENRE_BASED':
+                    return `/api/recommend/genres?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
+                case 'HYBRID':
+                    return `/api/recommend/hybrid?limit=${limit}` + (seed ? `&username=${encodeURIComponent(seed)}` : '');
+                case 'TRACK_SIMILARITY':
+                    const splitIdx = seed.indexOf(' - ');
+                    if (splitIdx === -1) { alert('format: artist - track'); throw new Error('invalid format'); }
+                    const artist = seed.substring(0, splitIdx).trim();
+                    const track = seed.substring(splitIdx + 3).trim();
+                    return `/api/recommend/track?artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&limit=${limit}`;
+                case 'TAG_BASED':
+                    return `/api/recommend/tag?tag=${encodeURIComponent(seed)}&limit=${limit}`;
+                case 'ARTIST_SIMILARITY':
+                    return `/api/recommend?artist=${encodeURIComponent(seed)}&limit=${limit}`;
+                default:
+                    return `/api/recommend?artist=${encodeURIComponent(seed)}&limit=${limit}`;
+            }
+        }
 
-        let html = `<div class="table-container"><table>
+        function renderResults(recs) {
+            const tableContainer = document.getElementById('results-table');
+            const actions = document.getElementById('results-actions');
+
+            if (!recs || recs.length === 0) {
+                tableContainer.innerHTML = '<p style="color: var(--text-muted);">no recommendations found. check settings.</p>';
+                actions.classList.add('hidden');
+                return;
+            }
+
+            actions.classList.remove('hidden');
+
+            let html = `<div class="table-container"><table>
             <thead><tr>
                 <th style="width: 40px; text-align: center;"><input type="checkbox" id="select-all-header" onchange="selectAll(this.checked)"></th>
                 <th>artist</th>
@@ -806,12 +872,12 @@
                 <th>listeners</th>
             </tr></thead><tbody>`;
 
-        recs.forEach((r, i) => {
-            const track = r.track || {};
-            const pct = Math.round((r.matchScore || 0.5) * 100);
-            const listeners = (r.listenerCount || 0).toLocaleString();
-            const source = r.sourceArtist || 'algorithm';
-            html += `<tr>
+            recs.forEach((r, i) => {
+                const track = r.track || {};
+                const pct = Math.round((r.matchScore || 0.5) * 100);
+                const listeners = (r.listenerCount || 0).toLocaleString();
+                const source = r.sourceArtist || 'algorithm';
+                html += `<tr>
                 <td style="text-align: center;"><input type="checkbox" class="track-check" data-index="${i}" onchange="updateSelectedCount()"></td>
                 <td style="font-weight: 600; color: #fff;">${escapeHtml(track.artist)}</td>
                 <td>${escapeHtml(track.title)}</td>
@@ -819,209 +885,210 @@
                 <td>${pct}%</td>
                 <td style="color: var(--text-muted);">${listeners}</td>
             </tr>`;
-        });
-        html += '</tbody></table></div>';
-        tableContainer.innerHTML = html;
-        updateSelectedCount();
-    }
+            });
+            html += '</tbody></table></div>';
+            tableContainer.innerHTML = html;
+            updateSelectedCount();
+        }
 
-    function updateSelectedCount() {
-        const count = document.querySelectorAll('.track-check:checked').length;
-        const label = document.getElementById('selected-count-label');
-        if (label) label.innerText = `(${count} selected)`;
-    }
+        function updateSelectedCount() {
+            const count = document.querySelectorAll('.track-check:checked').length;
+            const label = document.getElementById('selected-count-label');
+            if (label) label.innerText = `(${count} selected)`;
+        }
 
-    async function downloadSelected() {
-        const selected = [];
-        document.querySelectorAll('.track-check:checked').forEach(cb => {
-            const idx = parseInt(cb.dataset.index);
-            if (recommendations[idx] && recommendations[idx].track) {
-                selected.push({
-                    artist: recommendations[idx].track.artist,
-                    title: recommendations[idx].track.title,
-                    spotifyUrl: null,
-                    duration: null
+        async function downloadSelected() {
+            const selected = [];
+            document.querySelectorAll('.track-check:checked').forEach(cb => {
+                const idx = parseInt(cb.dataset.index);
+                if (recommendations[idx] && recommendations[idx].track) {
+                    selected.push({
+                        artist: recommendations[idx].track.artist,
+                        title: recommendations[idx].track.title,
+                        spotifyUrl: null,
+                        duration: null
+                    });
+                }
+            });
+
+            if (selected.length === 0) { alert('select at least one track'); return; }
+
+            const dlBtn = document.getElementById('download-selected-btn');
+            if (dlBtn) {
+                dlBtn.disabled = true;
+                dlBtn.innerText = `[queuing ${selected.length}...]`;
+            }
+            setDownloadStatus(true, `[● downloading ${selected.length} track${selected.length > 1 ? 's' : ''}...]`);
+
+            try {
+                const response = await fetch('/api/download/tracks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tracks: selected })
                 });
+                if (!response.ok) throw new Error(`http ${response.status}`);
+                logProgress(`started download of ${selected.length} tracks...`);
+                if (dlBtn) {
+                    dlBtn.innerText = '[downloading...]';
+                }
+            } catch (e) {
+                alert(`download failed: ${e.message}`);
+                if (dlBtn) {
+                    dlBtn.disabled = false;
+                    dlBtn.innerText = '[download selected]';
+                }
+                setDownloadStatus(false);
             }
-        });
-
-        if (selected.length === 0) { alert('select at least one track'); return; }
-
-        const dlBtn = document.getElementById('download-selected-btn');
-        if (dlBtn) {
-            dlBtn.disabled = true;
-            dlBtn.innerText = `[queuing ${selected.length}...]`;
         }
-        setDownloadStatus(true, `[● downloading ${selected.length} track${selected.length > 1 ? 's' : ''}...]`);
 
-        try {
-            const response = await fetch('/api/download/tracks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tracks: selected })
+        async function refreshLibrary() {
+            const list = document.getElementById('library-list');
+            list.innerHTML = '<p style="color: var(--text-muted);">loading...</p>';
+            try {
+                const response = await fetch('/api/library');
+                if (!response.ok) throw new Error(`http ${response.status}`);
+                libraryData = await response.json();
+                const countElem = document.getElementById('library-count');
+                if (countElem) countElem.innerText = `(${libraryData.length} tracks)`;
+                renderLibrary(libraryData);
+            } catch (e) {
+                list.innerHTML = `<p style="color: var(--status-err);">error: ${escapeHtml(e.message)}</p>`;
+            }
+        }
+
+        function renderLibrary(files) {
+            const list = document.getElementById('library-list');
+            if (!files || files.length === 0) {
+                list.innerHTML = '<p style="color: var(--text-muted);">no files downloaded yet.</p>';
+                return;
+            }
+            let html = '<ul>';
+            files.forEach(f => {
+                const name = f.replace(/\\/g, '/').split('/').pop();
+                html += `<li>${escapeHtml(name)}</li>`;
             });
-            if (!response.ok) throw new Error(`http ${response.status}`);
-            logProgress(`started download of ${selected.length} tracks...`);
-            if (dlBtn) {
-                dlBtn.innerText = '[downloading...]';
-            }
-        } catch (e) {
-            alert(`download failed: ${e.message}`);
-            if (dlBtn) {
-                dlBtn.disabled = false;
-                dlBtn.innerText = '[download selected]';
-            }
-            setDownloadStatus(false);
+            html += '</ul>';
+            list.innerHTML = html;
         }
-    }
 
-    async function refreshLibrary() {
-        const list = document.getElementById('library-list');
-        list.innerHTML = '<p style="color: var(--text-muted);">loading...</p>';
-        try {
-            const response = await fetch('/api/library');
-            if (!response.ok) throw new Error(`http ${response.status}`);
-            libraryData = await response.json();
-            const countElem = document.getElementById('library-count');
-            if (countElem) countElem.innerText = `(${libraryData.length} tracks)`;
-            renderLibrary(libraryData);
-        } catch (e) {
-            list.innerHTML = `<p style="color: var(--status-err);">error: ${escapeHtml(e.message)}</p>`;
+        function filterLibrary() {
+            const q = (document.getElementById('library-filter').value || '').toLowerCase();
+            const filtered = libraryData.filter(f => f.toLowerCase().includes(q));
+            renderLibrary(filtered);
         }
-    }
 
-    function renderLibrary(files) {
-        const list = document.getElementById('library-list');
-        if (!files || files.length === 0) {
-            list.innerHTML = '<p style="color: var(--text-muted);">no files downloaded yet.</p>';
-            return;
-        }
-        let html = '<ul>';
-        files.forEach(f => {
-            const name = f.replace(/\\/g, '/').split('/').pop();
-            html += `<li>${escapeHtml(name)}</li>`;
-        });
-        html += '</ul>';
-        list.innerHTML = html;
-    }
-
-    function filterLibrary() {
-        const q = (document.getElementById('library-filter').value || '').toLowerCase();
-        const filtered = libraryData.filter(f => f.toLowerCase().includes(q));
-        renderLibrary(filtered);
-    }
-
-    async function triggerSchedule() {
-        const btn = document.querySelector('button[onclick="triggerSchedule()"]');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerText = '[triggering...]';
-        }
-        setDownloadStatus(true, '[● auto-download active...]');
-        try {
-            const res = await fetch('/api/schedule/trigger', { method: 'POST' });
-            if (!res.ok) throw new Error(`http ${res.status}`);
-            logProgress('system: triggered scheduled download pipeline');
-        } catch (e) {
-            alert(`sync trigger failed: ${e.message}`);
-            setDownloadStatus(false);
-        } finally {
+        async function triggerSchedule() {
+            const btn = document.querySelector('button[onclick="triggerSchedule()"]');
             if (btn) {
-                btn.disabled = false;
-                btn.innerText = '[auto-download now]';
+                btn.disabled = true;
+                btn.innerText = '[triggering...]';
+            }
+            setDownloadStatus(true, '[● auto-download active...]');
+            try {
+                const res = await fetch('/api/schedule/trigger', { method: 'POST' });
+                if (!res.ok) throw new Error(`http ${res.status}`);
+                logProgress('system: triggered scheduled download pipeline');
+            } catch (e) {
+                alert(`sync trigger failed: ${e.message}`);
+                setDownloadStatus(false);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = '[auto-download now]';
+                }
             }
         }
-    }
 
-    async function triggerCleanup() {
-        try {
-            logProgress('system: starting .webm to .mp3 format cleanup...');
-            const res = await fetch('/api/cleanup', { method: 'POST' });
-            if (!res.ok) throw new Error(`http ${res.status}`);
-            const converted = await res.json();
-            logProgress(`system: cleanup finished. converted ${converted.length} files`);
+        async function triggerCleanup() {
+            try {
+                logProgress('system: starting .webm to .mp3 format cleanup...');
+                const res = await fetch('/api/cleanup', { method: 'POST' });
+                if (!res.ok) throw new Error(`http ${res.status}`);
+                const converted = await res.json();
+                logProgress(`system: cleanup finished. converted ${converted.length} files`);
+                refreshLibrary();
+            } catch (e) {
+                alert(`cleanup failed: ${e.message}`);
+            }
+        }
+
+        // ─── settings ───
+        async function openSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                if (!response.ok) throw new Error('failed to load settings');
+                const s = await response.json();
+
+                document.getElementById('set-lastfm-key').value = s.lastfmApiKey || '';
+                document.getElementById('set-lastfm-user').value = s.lastfmUsername || '';
+                document.getElementById('set-max-downloads').value = s.maxDailyDownloads || 50;
+                document.getElementById('set-strategy').value = s.scheduledStrategy || 'HYBRID';
+
+                const time = parseCron(s.cronSchedule || '0 0 2 * * *');
+                document.getElementById('set-cron-hour').value = time.hour;
+                document.getElementById('set-cron-minute').value = time.minute;
+
+                document.getElementById('set-format').value = s.format || 'mp3';
+                document.getElementById('set-bitrate').value = s.bitrate || '320';
+                document.getElementById('set-organize').checked = s.organizeByArtist || false;
+                document.getElementById('set-lyrics').checked = s.downloadLyrics || false;
+            } catch (e) {
+                console.error('error loading settings:', e);
+            }
+        }
+
+        async function saveSettings() {
+            const s = {
+                lastfmApiKey: document.getElementById('set-lastfm-key').value.trim(),
+                lastfmUsername: document.getElementById('set-lastfm-user').value.trim(),
+                maxDailyDownloads: parseInt(document.getElementById('set-max-downloads').value) || 50,
+                scheduledStrategy: document.getElementById('set-strategy').value,
+                cronSchedule: buildCron(),
+                format: document.getElementById('set-format').value,
+                bitrate: document.getElementById('set-bitrate').value,
+                organizeByArtist: document.getElementById('set-organize').checked,
+                downloadLyrics: document.getElementById('set-lyrics').checked
+            };
+
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(s)
+                });
+                if (!response.ok) throw new Error('failed to save settings');
+                const statusElem = document.getElementById('status-text');
+                statusElem.innerText = 'settings saved and applied.';
+                setTimeout(() => { statusElem.innerText = ''; }, 3500);
+            } catch (e) {
+                alert(`error saving settings: ${e.message}`);
+            }
+        }
+
+        // ─── ui helpers ───
+        function selectAll(checked) {
+            document.querySelectorAll('.track-check').forEach(cb => cb.checked = checked);
+            const headerCb = document.getElementById('select-all-header');
+            if (headerCb) headerCb.checked = checked;
+            updateSelectedCount();
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str || '';
+            return div.innerHTML;
+        }
+
+        // ─── init ───
+        window.addEventListener('DOMContentLoaded', () => {
+            populateTimeDropdowns();
+            connectWS();
+            toggleSeedInput();
+            openSettings();
             refreshLibrary();
-        } catch (e) {
-            alert(`cleanup failed: ${e.message}`);
-        }
-    }
-
-    // ─── settings ───
-    async function openSettings() {
-        try {
-            const response = await fetch('/api/settings');
-            if (!response.ok) throw new Error('failed to load settings');
-            const s = await response.json();
-
-            document.getElementById('set-lastfm-key').value = s.lastfmApiKey || '';
-            document.getElementById('set-lastfm-user').value = s.lastfmUsername || '';
-            document.getElementById('set-max-downloads').value = s.maxDailyDownloads || 50;
-            document.getElementById('set-strategy').value = s.scheduledStrategy || 'HYBRID';
-
-            const time = parseCron(s.cronSchedule || '0 0 2 * * *');
-            document.getElementById('set-cron-hour').value = time.hour;
-            document.getElementById('set-cron-minute').value = time.minute;
-
-            document.getElementById('set-format').value = s.format || 'mp3';
-            document.getElementById('set-bitrate').value = s.bitrate || '320';
-            document.getElementById('set-organize').checked = s.organizeByArtist || false;
-            document.getElementById('set-lyrics').checked = s.downloadLyrics || false;
-        } catch (e) {
-            console.error('error loading settings:', e);
-        }
-    }
-
-    async function saveSettings() {
-        const s = {
-            lastfmApiKey: document.getElementById('set-lastfm-key').value.trim(),
-            lastfmUsername: document.getElementById('set-lastfm-user').value.trim(),
-            maxDailyDownloads: parseInt(document.getElementById('set-max-downloads').value) || 50,
-            scheduledStrategy: document.getElementById('set-strategy').value,
-            cronSchedule: buildCron(),
-            format: document.getElementById('set-format').value,
-            bitrate: document.getElementById('set-bitrate').value,
-            organizeByArtist: document.getElementById('set-organize').checked,
-            downloadLyrics: document.getElementById('set-lyrics').checked
-        };
-
-        try {
-            const response = await fetch('/api/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(s)
-            });
-            if (!response.ok) throw new Error('failed to save settings');
-            const statusElem = document.getElementById('status-text');
-            statusElem.innerText = 'settings saved and applied.';
-            setTimeout(() => { statusElem.innerText = ''; }, 3500);
-        } catch (e) {
-            alert(`error saving settings: ${e.message}`);
-        }
-    }
-
-    // ─── ui helpers ───
-    function selectAll(checked) {
-        document.querySelectorAll('.track-check').forEach(cb => cb.checked = checked);
-        const headerCb = document.getElementById('select-all-header');
-        if (headerCb) headerCb.checked = checked;
-        updateSelectedCount();
-    }
-
-    function escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str || '';
-        return div.innerHTML;
-    }
-
-    // ─── init ───
-    window.addEventListener('DOMContentLoaded', () => {
-        populateTimeDropdowns();
-        connectWS();
-        toggleSeedInput();
-        openSettings();
-        refreshLibrary();
-    });
-</script>
+        });
+    </script>
 
 </body>
+
 </html>
