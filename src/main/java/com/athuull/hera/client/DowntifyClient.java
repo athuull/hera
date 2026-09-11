@@ -35,8 +35,16 @@ public class DowntifyClient {
         return restTemplate.getForEntity(url("/api/songs/search", "query", query), JsonNode.class).getBody();
     }
 
+    public JsonNode resolveUrl(String url) {
+        return restTemplate.getForEntity(url("/api/song/url", "url", url), JsonNode.class).getBody();
+    }
+
     public String downloadSingle(String url) {
         return restTemplate.postForEntity(url("/api/download/url", "url", url), null, String.class).getBody();
+    }
+
+    public JsonNode downloadAlbum(String url) {
+        return restTemplate.postForEntity(url("/api/download/album", "url", url), null, JsonNode.class).getBody();
     }
 
     public JsonNode downloadBatch(List<JsonNode> songs, String playlistUrl, boolean generateM3u) {

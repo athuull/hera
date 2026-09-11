@@ -396,6 +396,11 @@
     </div>
     <button id="search-btn" onclick="searchRecommendations()">[search]</button>
 </div>
+<div class="url-download-panel" style="margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+    <input type="text" id="url-download-input" placeholder="paste album, playlist, or track link (spotify / youtube)..." style="flex: 1; min-width: 280px; max-width: 520px;" onkeydown="if(event.key==='Enter') downloadByUrl()">
+    <button id="download-url-btn" onclick="downloadByUrl()">[download link]</button>
+    <span id="url-download-status" style="font-size: 12px; font-weight: 500;"></span>
+</div>
 
 <hr>
 
@@ -867,6 +872,67 @@
             alert(`download failed: ${e.message}`);
             if (btn) { btn.disabled = false; btn.innerText = '[download selected]'; }
             setDownloadStatus(false);
+        }
+    }
+
+    async function downloadByUrl() {
+        const input = document.getElementById('url-download-input');
+        const btn = document.getElementById('download-url-btn');
+        const statusEl = document.getElementById('url-download-status');
+        const url = input.value.trim();
+
+        if (!url) {
+            if (statusEl) {
+                statusEl.style.color = 'var(--status-err)';
+                statusEl.innerText = 'please paste a link';
+                setTimeout(() => { statusEl.innerText = ''; }, 3000);
+            }
+            input.focus();
+            return;
+        }
+
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            if (statusEl) {
+                statusEl.style.color = 'var(--status-err)';
+                statusEl.innerText = 'must start with http:// or https://';
+                setTimeout(() => { statusEl.innerText = ''; }, 3500);
+            }
+            input.focus();
+            return;
+        }
+
+        if (btn) { btn.disabled = true; btn.innerText = '[queuing...]'; }
+        if (statusEl) { statusEl.style.color = 'var(--text-muted)'; statusEl.innerText = 'processing link...'; }
+
+        try {
+            const res = await fetch('/api/download/url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url })
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `http ${res.status}`);
+            }
+            if (btn) { btn.innerText = '[queued ✓]'; }
+            if (statusEl) {
+                statusEl.style.color = 'var(--status-ok)';
+                statusEl.innerText = '✓ download queued';
+            }
+            logProgress(`system: download queued for link -> ${url}`);
+            input.value = '';
+            setDownloadStatus(true);
+            setTimeout(() => {
+                if (btn) { btn.disabled = false; btn.innerText = '[download link]'; }
+                if (statusEl && statusEl.innerText.includes('queued')) { statusEl.innerText = ''; }
+            }, 3000);
+        } catch (e) {
+            if (btn) { btn.disabled = false; btn.innerText = '[download link]'; }
+            if (statusEl) {
+                statusEl.style.color = 'var(--status-err)';
+                statusEl.innerText = `✗ error: ${e.message}`;
+                setTimeout(() => { statusEl.innerText = ''; }, 4000);
+            }
         }
     }
 

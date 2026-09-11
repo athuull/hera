@@ -18,6 +18,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -428,5 +429,65 @@ class DownloadServiceTest {
         assertEquals(800, sent.get("cover_resolution"));
         assertEquals("mp3", sent.get("format"));
         assertEquals("320", sent.get("bitrate"));
+    }
+
+    @Test
+    @DisplayName("downloadUrlOrAlbum routes YouTube Music album to downloadAlbum")
+    void testDownloadUrlOrAlbumWithYtMusicAlbum() {
+        com.athuull.hera.client.DowntifyClient fakeClient =
+                Mockito.mock(com.athuull.hera.client.DowntifyClient.class);
+        SettingsService fakeSettingsService = Mockito.mock(SettingsService.class);
+        when(fakeSettingsService.getSettings()).thenReturn(AppSettings.builder().build());
+
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        com.fasterxml.jackson.databind.node.ObjectNode albumNode = mapper.createObjectNode();
+        albumNode.put("track1", "file1.mp3");
+        albumNode.put("track2", "file2.mp3");
+        when(fakeClient.downloadAlbum(anyString())).thenReturn(albumNode);
+
+        DownloadService svc = new DownloadService(
+                fakeClient,
+                Mockito.mock(com.athuull.hera.config.DowntifyConfig.class),
+                fakeSettingsService,
+                Mockito.mock(DeduplicationService.class),
+                Mockito.mock(FormatCleanupService.class),
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class)
+        );
+
+        String albumUrl = "https://music.youtube.com/browse/MPREb_xyz123";
+        DownloadResult result = svc.downloadUrlOrAlbum(albumUrl);
+
+        assertEquals("done", result.getStatus());
+        verify(fakeClient).downloadAlbum(albumUrl);
+    }
+
+    @Test
+    @DisplayName("downloadUrlOrAlbum routes resolved multi-track URL to downloadBatch")
+    void testDownloadUrlOrAlbumWithResolvedBatch() {
+        com.athuull.hera.client.DowntifyClient fakeClient =
+                Mockito.mock(com.athuull.hera.client.DowntifyClient.class);
+        SettingsService fakeSettingsService = Mockito.mock(SettingsService.class);
+        when(fakeSettingsService.getSettings()).thenReturn(AppSettings.builder().build());
+
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        com.fasterxml.jackson.databind.node.ArrayNode songsArray = mapper.createArrayNode();
+        songsArray.addObject().put("title", "Song 1");
+        songsArray.addObject().put("title", "Song 2");
+        when(fakeClient.resolveUrl(anyString())).thenReturn(songsArray);
+
+        DownloadService svc = new DownloadService(
+                fakeClient,
+                Mockito.mock(com.athuull.hera.config.DowntifyConfig.class),
+                fakeSettingsService,
+                Mockito.mock(DeduplicationService.class),
+                Mockito.mock(FormatCleanupService.class),
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class)
+        );
+
+        String spotifyAlbumUrl = "https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy";
+        DownloadResult result = svc.downloadUrlOrAlbum(spotifyAlbumUrl);
+
+        assertEquals("queued", result.getStatus());
+        verify(fakeClient).downloadBatch(anyList(), eq(spotifyAlbumUrl), eq(false));
     }
 }

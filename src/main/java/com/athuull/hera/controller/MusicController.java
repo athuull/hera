@@ -118,11 +118,18 @@ public class MusicController {
     }
 
     @PostMapping("/download/url")
-    public ResponseEntity<DownloadResult> downloadUrl(@RequestBody Map<String, String> body) {
+    public ResponseEntity<Map<String, Object>> downloadUrl(@RequestBody Map<String, String> body) {
         String url = body.get("url");
-        return (url == null || url.isBlank())
-                ? ResponseEntity.badRequest().build()
-                : ResponseEntity.ok(downloadService.downloadSingleByUrl(url));
+        if (url == null || url.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "URL is required"));
+        }
+        String cleanUrl = url.trim();
+        taskExecutor.execute(() -> downloadService.downloadUrlOrAlbum(cleanUrl));
+        return ResponseEntity.ok(Map.of(
+                "status", "queued",
+                "message", "Download queued for URL",
+                "url", cleanUrl
+        ));
     }
 
     // ─── Queue & Library ───

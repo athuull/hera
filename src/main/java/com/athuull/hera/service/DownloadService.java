@@ -445,11 +445,69 @@ public class DownloadService {
     }
 
     public DownloadResult downloadSingleByUrl(String url) {
+        return downloadUrlOrAlbum(url);
+    }
+
+    public DownloadResult downloadUrlOrAlbum(String url) {
+        if (url == null || url.isBlank()) {
+            return DownloadResult.builder().status("error").errorMessage("URL cannot be empty").build();
+        }
+        String cleanUrl = url.trim();
         try {
-            String filename = downtifyClient.downloadSingle(url);
+            configureDowntify();
+            log.info("Processing URL download request: {}", cleanUrl);
+            broadcast(Map.of(
+                    "type", "log",
+                    "message", "system: received download link -> " + cleanUrl
+            ));
+
+            boolean isYtMusicAlbum = cleanUrl.contains("music.youtube.com") && (cleanUrl.contains("/browse/") || cleanUrl.contains("album"));
+            if (isYtMusicAlbum) {
+                log.info("Triggering YouTube Music album download via /api/download/album for {}", cleanUrl);
+                broadcast(Map.of(
+                        "type", "log",
+                        "message", "system: downloading YouTube Music album..."
+                ));
+                JsonNode albumResult = downtifyClient.downloadAlbum(cleanUrl);
+                int count = albumResult != null && albumResult.isObject() ? albumResult.size() : 1;
+                broadcast(Map.of(
+                        "type", "log",
+                        "message", "system: album download completed (" + count + " tracks)"
+                ));
+                dedupService.refreshIndex();
+                return DownloadResult.builder().status("done").filename(cleanUrl).build();
+            }
+
+            try {
+                JsonNode resolved = downtifyClient.resolveUrl(cleanUrl);
+                if (resolved != null && resolved.isArray() && !resolved.isEmpty()) {
+                    List<JsonNode> songList = new ArrayList<>();
+                    resolved.forEach(songList::add);
+                    log.info("Resolved link to {} songs. Submitting batch download.", songList.size());
+                    broadcast(Map.of(
+                            "type", "log",
+                            "message", "system: resolved link to " + songList.size() + " songs. Queuing batch..."
+                    ));
+                    downtifyClient.downloadBatch(songList, cleanUrl, false);
+                    return DownloadResult.builder().status("queued").filename(cleanUrl).build();
+                }
+            } catch (Exception e) {
+                log.debug("URL resolution via /api/song/url returned: {}, falling back to single download", e.getMessage());
+            }
+
+            String filename = downtifyClient.downloadSingle(cleanUrl);
+            broadcast(Map.of(
+                    "type", "log",
+                    "message", "system: download complete -> " + (filename != null ? filename : cleanUrl)
+            ));
+            dedupService.refreshIndex();
             return DownloadResult.builder().filename(filename).status("done").build();
         } catch (Exception e) {
-            log.error("Single download failed for '{}': {}", url, e.getMessage());
+            log.error("Download failed for URL '{}': {}", cleanUrl, e.getMessage());
+            broadcast(Map.of(
+                    "type", "log",
+                    "message", "system: error downloading link: " + e.getMessage()
+            ));
             return DownloadResult.builder().status("error").errorMessage(e.getMessage()).build();
         }
     }
