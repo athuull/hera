@@ -206,31 +206,56 @@ public class DownloadService {
     public boolean isPlausibleMatch(Track requested, String matchedArtist, String matchedTitle) {
         if (matchedTitle == null || matchedTitle.isBlank()) return false;
 
-        String reqTitle  = cleanForComparison(requested.getTitle());
-        String gotTitle  = cleanForComparison(matchedTitle);
+        // Titles: only strip feat credits and YouTube noise — (Skit), (Remix), (Live) etc. must survive
+        // so they can distinguish fundamentally different tracks.
+        String reqTitle  = cleanTitle(requested.getTitle());
+        String gotTitle  = cleanTitle(matchedTitle);
+
+        // Artists: strip everything aggressively — feat lists, collaboration credits, etc.
         String reqArtist = cleanForComparison(requested.getArtist());
         String gotArtist = matchedArtist == null ? "" : cleanForComparison(matchedArtist);
 
-        boolean titleOverlaps  = gotTitle.contains(reqTitle) || reqTitle.contains(gotTitle);
-        // Only check one direction: the matched artist must contain the full requested name.
-        // Allowing reqArtist.contains(gotArtist) was too loose — "tory lanez".contains("lanez")
-        // would accept a completely different artist called "Lanez".
+        // Title: require equality after cleaning.
+        // contains() was too loose — "say it (skit)".contains("say it") = true,
+        // which caused "Say It (Skit)" to be accepted when "Say It" was requested.
+        boolean titleMatches   = gotTitle.equals(reqTitle);
+
+        // Artist: matched artist must contain the full requested name (safe direction only).
+        // reqArtist.contains(gotArtist) was too loose — "tory lanez".contains("lanez") = true,
+        // which caused "Lanez" (different artist) to be accepted for "Tory Lanez".
         boolean artistOverlaps = gotArtist.isBlank() || gotArtist.contains(reqArtist);
 
-        return titleOverlaps && artistOverlaps;
+        return titleMatches && artistOverlaps;
     }
 
     /**
-     * Normalises a track/artist string for lenient comparison by:
-     * - Converting to lowercase
-     * - Removing anything inside parentheses or square brackets (feat lists, remixes, etc.)
-     * - Removing everything after " feat." or " ft."
-     * - Collapsing and trimming whitespace
+     * Cleans a track TITLE for plausibility comparison.
+     * Only strips feat/ft credits and known YouTube Music noise annotations (Official Video, Audio, etc.).
+     * Preserves meaningful parenthetical identifiers like (Skit), (Remix), (Live), (Acoustic), etc.
+     * so that "Say It (Skit)" is NOT accepted as a match for "Say It".
+     */
+    String cleanTitle(String input) {
+        if (input == null) return "";
+        String s = input.toLowerCase();
+        // Strip feat/ft credits inside parens or brackets only
+        s = s.replaceAll("\\(\\s*f(?:eat|t)\\.?[^)]*\\)", "");
+        s = s.replaceAll("\\[\\s*f(?:eat|t)\\.?[^\\]]*\\]", "");
+        // Strip YouTube Music noise annotations that don't change the track's identity
+        s = s.replaceAll("\\(\\s*(?:official\\s+(?:video|audio|music\\s+video)|music\\s+video|audio|lyric(?:s|\\s+video)?|visuali[zs]er|hd|hq)\\s*\\)", "");
+        // Strip bare feat./ft. that wasn't already in parens
+        s = s.replaceAll("\\s+f(?:eat|t)\\..*", "");
+        return s.trim();
+    }
+
+    /**
+     * Cleans an ARTIST string for plausibility comparison.
+     * Aggressively strips all parenthetical content (feat lists, collaboration credits, etc.)
+     * because artist display names have no meaningful parenthetical distinctions.
      */
     String cleanForComparison(String input) {
         if (input == null) return "";
         String s = input.toLowerCase();
-        // Strip parenthesised and bracketed annotations: (feat. ...), [radio edit], etc.
+        // Strip all parenthesised and bracketed annotations
         s = s.replaceAll("\\([^)]*\\)", "");
         s = s.replaceAll("\\[[^\\]]*\\]", "");
         // Strip everything after a bare feat. / ft. that wasn't already in parens

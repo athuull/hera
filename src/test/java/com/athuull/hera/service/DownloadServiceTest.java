@@ -97,11 +97,21 @@ class DownloadServiceTest {
         assertTrue(downloadService.isPlausibleMatch(requested, "", "Song"));
     }
 
+
+    @Test
+    @DisplayName("isPlausibleMatch REJECTS 'Say It (Skit)' when requesting 'Say It'")
+    void testPlausibleMatchRejectsSkit() {
+        // cleanTitle("Say It (Skit)") = "say it (skit)" — skit is preserved, not stripped
+        // cleanTitle("Say It") = "say it"
+        // "say it (skit)" != "say it" → rejected
+        Track requested = new Track("Tory Lanez", "Say It", null, null);
+        assertFalse(downloadService.isPlausibleMatch(requested, "Tory Lanez", "Say It (Skit)"),
+                "Should reject 'Say It (Skit)' when 'Say It' was requested");
+    }
+
     @Test
     @DisplayName("isPlausibleMatch REJECTS 'Lanez' when requesting 'Tory Lanez' — partial name is not enough")
     void testPlausibleMatchRejectsPartialArtistName() {
-        // "tory lanez".contains("lanez") = true, but that must NOT be sufficient.
-        // The matched artist ("Lanez") must contain the full requested name ("tory lanez"), which it doesn't.
         Track requested = new Track("Tory Lanez", "Say It", null, null);
         assertFalse(downloadService.isPlausibleMatch(requested, "Lanez", "Say It"),
                 "Should reject 'Lanez' as a match for 'Tory Lanez' — different artist");
@@ -110,7 +120,6 @@ class DownloadServiceTest {
     @Test
     @DisplayName("isPlausibleMatch accepts when matched artist contains full requested name (collaborative credit)")
     void testPlausibleMatchGotArtistContainsReqArtist() {
-        // e.g. YouTube Music returns "Tory Lanez & Bryson Tiller" for a collab — still a valid match
         Track requested = new Track("Tory Lanez", "Say It", null, null);
         assertTrue(downloadService.isPlausibleMatch(requested, "Tory Lanez & Bryson Tiller", "Say It"));
     }
@@ -119,8 +128,10 @@ class DownloadServiceTest {
     // ─── searchForTrack ───────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("searchForTrack skips bad top results and returns the 7th (Tory Lanez scenario)")
+    @DisplayName("searchForTrack skips wrong songs and skit, returns the real 'Say It' (real log scenario)")
     void testSearchForTrackSkipsBadResults() throws Exception {
+        // Mirrors the actual YouTube Music result order from logs:
+        // positions 1-6 are wrong songs, 7 is "Say It (Skit)", 8 is the real "Say It"
         String resultsJson = "[" +
             "{\"name\":\"The Take (feat. Chris Brown)\",\"artists\":[\"Tory Lanez\"]}," +
             "{\"name\":\"The Color Violet\",\"artists\":[\"Tory Lanez\"]}," +
@@ -128,6 +139,7 @@ class DownloadServiceTest {
             "{\"name\":\"Traphouse\",\"artists\":[\"Tory Lanez\"]}," +
             "{\"name\":\"TAlk tO Me\",\"artists\":[\"Tory Lanez\"]}," +
             "{\"name\":\"Hate To Say\",\"artists\":[\"Tory Lanez\"]}," +
+            "{\"name\":\"Say It (Skit)\",\"artists\":[\"Tory Lanez\"]}," +
             "{\"name\":\"Say It\",\"artists\":[\"Tory Lanez\"]}" +
             "]";
         JsonNode fakeResults = mapper.readTree(resultsJson);
