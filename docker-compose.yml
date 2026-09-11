@@ -85,10 +85,10 @@ x-casaos:
     en_US: Automated music recommendation & downloader
   description:
     en_US: "A self-hosted music recommendation and automated downloader service. Hera uses Last.fm to discover music tailored to your taste and downloads tracks via Downtify. Features automated cron downloads, manual library search, format cleanup, and library deduplication."
-  icon: https://raw.githubusercontent.com/athuull/hera/main/hera.png
-  thumbnail: https://raw.githubusercontent.com/athuull/hera/main/hera.png
+  icon: https://raw.githubusercontent.com/athuull/hera/main/Apps/Hera/icon.png
+  thumbnail: https://raw.githubusercontent.com/athuull/hera/main/Apps/Hera/thumbnail.png
   screenshot_link:
-    - https://raw.githubusercontent.com/athuull/hera/main/Screenshot1.png
-    - https://raw.githubusercontent.com/athuull/hera/main/Screenshot2.png
+    - https://raw.githubusercontent.com/athuull/hera/main/Apps/Hera/screenshot-1.png
+    - https://raw.githubusercontent.com/athuull/hera/main/Apps/Hera/screenshot-2.png
   port_map: "8080"
   index: /

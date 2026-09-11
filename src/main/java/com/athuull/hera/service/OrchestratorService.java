@@ -114,10 +114,4 @@ public class OrchestratorService implements ApplicationRunner {
         List<Track> tracks = recs.stream().map(Recommendation::getTrack).collect(Collectors.toList());
         return downloadService.downloadBatch(tracks);
     }
-
-    public List<DownloadResult> runManual(List<String> seedArtists, int limit) {
-        return runManual(RecommendationRequest.builder()
-                .strategy(RecommendationStrategy.ARTIST_SIMILARITY)
-                .seedArtists(seedArtists).limit(limit).build());
-    }
 }

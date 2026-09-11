@@ -43,8 +43,4 @@ public class ProgressWebSocketHandler extends TextWebSocketHandler {
             }
         }
     }
-
-    public int getConnectedCount() {
-        return sessions.size();
-    }
 }

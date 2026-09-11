@@ -127,8 +127,4 @@ public class DeduplicationService {
         }
         return list;
     }
-
-    public int getKnownFileCount() {
-        return knownFiles.size();
-    }
 }

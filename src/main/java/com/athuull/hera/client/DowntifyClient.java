@@ -35,10 +35,6 @@ public class DowntifyClient {
         return restTemplate.getForEntity(url("/api/songs/search", "query", query), JsonNode.class).getBody();
     }
 
-    public JsonNode resolveSpotifyUrl(String spotifyUrl) {
-        return restTemplate.getForEntity(url("/api/song/url", "url", spotifyUrl), JsonNode.class).getBody();
-    }
-
     public String downloadSingle(String url) {
         return restTemplate.postForEntity(url("/api/download/url", "url", url), null, String.class).getBody();
     }
@@ -69,15 +65,6 @@ public class DowntifyClient {
         restTemplate.delete(url("/api/queue"));
     }
 
-    public boolean removeQueueItem(String songId) {
-        ResponseEntity<JsonNode> resp = restTemplate.exchange(url("/api/queue/item", "song_id", songId), HttpMethod.DELETE, null, JsonNode.class);
-        return resp.getBody() != null && resp.getBody().path("removed").asBoolean(false);
-    }
-
-    public JsonNode getSettings() {
-        return restTemplate.getForEntity(url("/api/settings"), JsonNode.class).getBody();
-    }
-
     public JsonNode updateSettings(Map<String, Object> settings) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -91,36 +78,8 @@ public class DowntifyClient {
         return files;
     }
 
-    public boolean deleteFile(String relativePath) {
-        ResponseEntity<JsonNode> resp = restTemplate.exchange(url("/delete", "file", relativePath), HttpMethod.DELETE, null, JsonNode.class);
-        return resp.getBody() != null && resp.getBody().path("deleted").asBoolean(false);
-    }
-
     public byte[] getCoverArt(String relativePath) {
         return restTemplate.getForEntity(url("/cover", "file", relativePath), byte[].class).getBody();
     }
-
-    public JsonNode getMonitoredPlaylists() {
-        return restTemplate.getForEntity(url("/api/monitor/playlists"), JsonNode.class).getBody();
-    }
-
-    public JsonNode monitorPlaylist(String playlistUrl, int intervalMinutes) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        ObjectNode body = mapper.createObjectNode().put("url", playlistUrl).put("interval_minutes", intervalMinutes);
-        return restTemplate.postForEntity(url("/api/monitor/playlists"), new HttpEntity<>(body.toString(), headers), JsonNode.class).getBody();
-    }
-
-    public JsonNode checkPlaylist(String playlistId) {
-        return restTemplate.postForEntity(url("/api/monitor/playlists/" + playlistId + "/check"), null, JsonNode.class).getBody();
-    }
-
-    public boolean stopMonitoringPlaylist(String playlistId) {
-        ResponseEntity<JsonNode> resp = restTemplate.exchange(url("/api/monitor/playlists/" + playlistId), HttpMethod.DELETE, null, JsonNode.class);
-        return resp.getBody() != null && resp.getBody().path("deleted").asBoolean(false);
-    }
-
-    public String getVersion() {
-        return restTemplate.getForEntity(url("/api/version"), String.class).getBody();
-    }
 }
+

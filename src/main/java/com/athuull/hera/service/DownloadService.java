@@ -29,8 +29,6 @@ public class DownloadService {
     private final ProgressWebSocketHandler progressHandler;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ReentrantLock downloadLock = new ReentrantLock();
-    private TrackMatcher trackMatcher = new TrackMatcher();
-    private DownloadProgressBroadcaster broadcaster;
 
     @Autowired
     public DownloadService(DowntifyClient downtifyClient,
@@ -38,37 +36,13 @@ public class DownloadService {
                            SettingsService settingsService,
                            DeduplicationService dedupService,
                            FormatCleanupService formatCleanupService,
-                           ProgressWebSocketHandler progressHandler,
-                           TrackMatcher trackMatcher,
-                           DownloadProgressBroadcaster broadcaster) {
+                           ProgressWebSocketHandler progressHandler) {
         this.downtifyClient = downtifyClient;
         this.config = config;
         this.settingsService = settingsService;
         this.dedupService = dedupService;
         this.formatCleanupService = formatCleanupService;
         this.progressHandler = progressHandler;
-        this.trackMatcher = trackMatcher != null ? trackMatcher : new TrackMatcher();
-        this.broadcaster = broadcaster != null ? broadcaster : new DownloadProgressBroadcaster(progressHandler);
-    }
-
-    public DownloadService(DowntifyClient downtifyClient,
-                           DowntifyConfig config,
-                           SettingsService settingsService,
-                           DeduplicationService dedupService,
-                           FormatCleanupService formatCleanupService,
-                           ProgressWebSocketHandler progressHandler) {
-        this(downtifyClient, config, settingsService, dedupService, formatCleanupService, progressHandler,
-                new TrackMatcher(), new DownloadProgressBroadcaster(progressHandler));
-    }
-
-    private TrackMatcher getTrackMatcher() {
-        if (trackMatcher == null) trackMatcher = new TrackMatcher();
-        return trackMatcher;
-    }
-
-    private DownloadProgressBroadcaster getBroadcaster() {
-        if (broadcaster == null) broadcaster = new DownloadProgressBroadcaster(progressHandler);
-        return broadcaster;
     }
 
     public void configureDowntify() {
@@ -189,43 +163,43 @@ public class DownloadService {
                 return results;
             }
 
+            configureDowntify();
+
             try {
                 downtifyClient.clearQueue();
                 log.info("Cleared Downtify queue");
             } catch (Exception e) {
-                log.warn("Could not clear Downtify queue: {}", e.getMessage());
+                log.warn("Could not clear queue before batch: {}", e.getMessage());
             }
 
             int preCompleted = skipped + notFound;
-            List<DownloadResult> downloadResults;
-
             try {
-                JsonNode batchResponse = downtifyClient.downloadBatch(songsToDownload);
-                int expectedCount = (batchResponse != null && batchResponse.has("count") && batchResponse.path("count").asInt() > 0)
-                        ? batchResponse.path("count").asInt()
-                        : songsToDownload.size();
-
-                log.info("Batch download queued: {} jobs", expectedCount);
-                downloadResults = pollQueueUntilComplete(expectedCount, matchedTracks, songsToDownload, totalTracks, preCompleted);
+                downtifyClient.downloadBatch(songsToDownload);
+                log.info("Batch download queued: {} jobs", songsToDownload.size());
             } catch (Exception e) {
-                log.error("Failed to queue or execute batch download with Downtify: {}", e.getMessage(), e);
-                downloadResults = new ArrayList<>();
+                log.error("Failed to queue batch download: {}", e.getMessage());
                 for (Track track : matchedTracks) {
                     broadcastStatus(track, "error", "Failed to queue download: " + e.getMessage());
-                    downloadResults.add(DownloadResult.builder()
+                    results.add(DownloadResult.builder()
                             .track(track)
                             .status("error")
                             .errorMessage("Failed to queue download: " + e.getMessage())
                             .build());
                 }
+                long succeeded = results.stream().filter(DownloadResult::isDone).count();
+                long failed = results.stream().filter(DownloadResult::isError).count();
+                broadcastBatchComplete(totalTracks, succeeded, failed, skipped);
+                return results;
             }
 
-            results.addAll(downloadResults);
+            List<DownloadResult> polledResults = pollQueueUntilComplete(
+                    songsToDownload.size(), matchedTracks, songsToDownload, totalTracks, preCompleted);
+            results.addAll(polledResults);
 
             try {
                 List<String> converted = formatCleanupService.cleanupWebmFiles();
                 if (!converted.isEmpty()) {
-                    log.info("Format cleanup: converted {} .webm → .mp3", converted.size());
+                    log.info("Converted {} dangling .webm files to configured format", converted.size());
                 }
             } catch (Exception e) {
                 log.warn("Format cleanup failed: {}", e.getMessage());
@@ -244,44 +218,114 @@ public class DownloadService {
         }
     }
 
+    private void broadcast(Object payload) {
+        if (progressHandler == null) return;
+        try {
+            progressHandler.broadcast(objectMapper.writeValueAsString(payload));
+        } catch (Exception e) {
+            log.debug("Failed to broadcast progress: {}", e.getMessage());
+        }
+    }
+
     private void broadcastStatus(Track track, String status, String message) {
-        getBroadcaster().broadcastStatus(track, status, message);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        Map<String, String> song = new LinkedHashMap<>();
+        song.put("artist", track != null && track.getArtist() != null ? track.getArtist() : "");
+        song.put("title", track != null && track.getTitle() != null ? track.getTitle() : "");
+        payload.put("song", song);
+        payload.put("status", status);
+        payload.put("message", message != null ? message : "");
+        broadcast(payload);
     }
 
     private void broadcastBatchStart(int total) {
-        getBroadcaster().broadcastBatchStart(total);
+        broadcast(Map.of("type", "batch_start", "total", total));
     }
 
     private void broadcastBatchProgress(int completed, int total) {
-        getBroadcaster().broadcastBatchProgress(completed, total);
+        broadcast(Map.of("type", "batch_progress", "completed", completed, "total", total));
     }
 
     private void broadcastBatchComplete(int total, long succeeded, long failed, int skipped) {
-        getBroadcaster().broadcastBatchComplete(total, succeeded, failed, skipped);
+        broadcast(Map.of(
+                "type", "batch_complete",
+                "total", total,
+                "downloaded", succeeded,
+                "failed", failed,
+                "skipped", skipped
+        ));
     }
 
     public boolean isPlausibleMatch(Track requested, String matchedArtist, String matchedTitle) {
-        return getTrackMatcher().isPlausibleMatch(requested, matchedArtist, matchedTitle);
+        if (matchedTitle == null || matchedTitle.isBlank()) return false;
+
+        String reqTitle = cleanTitle(requested.getTitle());
+        String gotTitle = cleanTitle(matchedTitle);
+
+        String reqArtist = cleanForComparison(requested.getArtist());
+        String gotArtist = matchedArtist == null ? "" : cleanForComparison(matchedArtist);
+
+        boolean titleMatches = gotTitle.equals(reqTitle);
+        boolean artistOverlaps = false;
+        if (gotArtist.isBlank() || gotArtist.contains(reqArtist)) {
+            artistOverlaps = true;
+        } else if (requested.getArtist() != null && (requested.getArtist().contains(";") || requested.getArtist().contains("/"))) {
+            for (String part : requested.getArtist().split("[;/]")) {
+                String cleanPart = cleanForComparison(part);
+                if (!cleanPart.isBlank() && gotArtist.contains(cleanPart)) {
+                    artistOverlaps = true;
+                    break;
+                }
+            }
+        }
+
+        return titleMatches && artistOverlaps;
     }
 
     String cleanTitle(String input) {
-        return getTrackMatcher().cleanTitle(input);
+        if (input == null) return "";
+        String s = input.toLowerCase();
+        s = s.replaceAll("\\(\\s*f(?:eat|t)\\.?[^)]*\\)", "");
+        s = s.replaceAll("\\[\\s*f(?:eat|t)\\.?[^\\]]*\\]", "");
+        s = s.replaceAll("\\(\\s*(?:official\\s+(?:video|audio|music\\s+video)|music\\s+video|audio|lyric(?:s|\\s+video)?|visuali[zs]er|hd|hq)\\s*\\)", "");
+        s = s.replaceAll("\\s+f(?:eat|t)\\..*", "");
+        return s.trim();
     }
 
     String cleanForComparison(String input) {
-        return getTrackMatcher().cleanForComparison(input);
+        if (input == null) return "";
+        String s = input.toLowerCase();
+        s = s.replaceAll("\\([^)]*\\)", "");
+        s = s.replaceAll("\\[[^\\]]*\\]", "");
+        s = s.replaceAll("\\s+feat\\..*", "");
+        s = s.replaceAll("\\s+ft\\..*", "");
+        return s.trim();
     }
 
     String extractArtistName(JsonNode artistNode) {
-        return getTrackMatcher().extractArtistName(artistNode);
+        if (artistNode == null) return "";
+        if (artistNode.isObject()) return artistNode.path("name").asText("");
+        return artistNode.asText("");
     }
 
     String extractCandidateTitle(JsonNode candidate) {
-        return getTrackMatcher().extractCandidateTitle(candidate);
+        if (candidate == null) return "";
+        if (candidate.hasNonNull("name")) return candidate.get("name").asText("");
+        return candidate.path("title").asText("");
     }
 
     String extractCandidateArtist(JsonNode candidate) {
-        return getTrackMatcher().extractCandidateArtist(candidate);
+        if (candidate == null) return "";
+        JsonNode artistsNode = candidate.path("artists");
+        if (artistsNode.isArray() && !artistsNode.isEmpty()) {
+            List<String> names = new ArrayList<>();
+            for (JsonNode a : artistsNode) {
+                String name = extractArtistName(a);
+                if (!name.isBlank()) names.add(name);
+            }
+            if (!names.isEmpty()) return String.join(" & ", names);
+        }
+        return candidate.path("artist").asText("");
     }
 
     private List<DownloadResult> pollQueueUntilComplete(int expectedCount, List<Track> tracks, List<JsonNode> songNodes,
