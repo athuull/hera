@@ -97,6 +97,25 @@ class DownloadServiceTest {
         assertTrue(downloadService.isPlausibleMatch(requested, "", "Song"));
     }
 
+    @Test
+    @DisplayName("isPlausibleMatch REJECTS 'Lanez' when requesting 'Tory Lanez' — partial name is not enough")
+    void testPlausibleMatchRejectsPartialArtistName() {
+        // "tory lanez".contains("lanez") = true, but that must NOT be sufficient.
+        // The matched artist ("Lanez") must contain the full requested name ("tory lanez"), which it doesn't.
+        Track requested = new Track("Tory Lanez", "Say It", null, null);
+        assertFalse(downloadService.isPlausibleMatch(requested, "Lanez", "Say It"),
+                "Should reject 'Lanez' as a match for 'Tory Lanez' — different artist");
+    }
+
+    @Test
+    @DisplayName("isPlausibleMatch accepts when matched artist contains full requested name (collaborative credit)")
+    void testPlausibleMatchGotArtistContainsReqArtist() {
+        // e.g. YouTube Music returns "Tory Lanez & Bryson Tiller" for a collab — still a valid match
+        Track requested = new Track("Tory Lanez", "Say It", null, null);
+        assertTrue(downloadService.isPlausibleMatch(requested, "Tory Lanez & Bryson Tiller", "Say It"));
+    }
+
+
     // ─── searchForTrack ───────────────────────────────────────────────────────
 
     @Test
@@ -159,5 +178,58 @@ class DownloadServiceTest {
         Optional<JsonNode> result = svc.searchForTrack(requested);
 
         assertTrue(result.isEmpty(), "Expected no match");
+    }
+
+    // ─── extractArtistName ────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("extractArtistName handles plain-string artists array element")
+    void testExtractArtistNameFromString() throws Exception {
+        // Some Downtify versions return: "artists": ["Tory Lanez"]
+        JsonNode stringNode = mapper.readTree("\"Tory Lanez\"");
+        assertEquals("Tory Lanez", downloadService.extractArtistName(stringNode));
+    }
+
+    @Test
+    @DisplayName("extractArtistName handles object artists array element (ytmusicapi format)")
+    void testExtractArtistNameFromObject() throws Exception {
+        // ytmusicapi returns: "artists": [{"name": "Tory Lanez", "id": "UCxxx"}]
+        JsonNode objectNode = mapper.readTree("{\"name\": \"Tory Lanez\", \"id\": \"UCxxx\"}");
+        assertEquals("Tory Lanez", downloadService.extractArtistName(objectNode));
+    }
+
+    @Test
+    @DisplayName("extractArtistName returns empty string for null")
+    void testExtractArtistNameNull() {
+        assertEquals("", downloadService.extractArtistName(null));
+    }
+
+    @Test
+    @DisplayName("searchForTrack correctly identifies artist when artists array contains objects")
+    void testSearchForTrackWithObjectArtists() throws Exception {
+        // ytmusicapi object-format artists array
+        String resultsJson = "[" +
+            "{\"name\":\"Say It\",\"artists\":[{\"name\":\"Tory Lanez\",\"id\":\"UCxxx\"}]}" +
+            "]";
+        JsonNode fakeResults = mapper.readTree(resultsJson);
+
+        com.athuull.hera.client.DowntifyClient fakeClient =
+                Mockito.mock(com.athuull.hera.client.DowntifyClient.class);
+        when(fakeClient.searchSongs(anyString())).thenReturn(fakeResults);
+
+        DownloadService svc = new DownloadService(
+                fakeClient,
+                Mockito.mock(com.athuull.hera.config.DowntifyConfig.class),
+                Mockito.mock(SettingsService.class),
+                Mockito.mock(DeduplicationService.class),
+                Mockito.mock(FormatCleanupService.class),
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class)
+        );
+
+        Track requested = new Track("Tory Lanez", "Say It", null, null);
+        Optional<JsonNode> result = svc.searchForTrack(requested);
+
+        assertTrue(result.isPresent(), "Expected match to be found with object-format artist");
+        assertEquals("Say It", result.get().path("name").asText());
     }
 }

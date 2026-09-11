@@ -71,9 +71,9 @@ public class DownloadService {
             }
 
             for (JsonNode candidate : results) {
-                String cTitle = candidate.path("name").asText("");
+                String cTitle  = candidate.path("name").asText("");
                 String cArtist = candidate.path("artists").isArray() && !candidate.path("artists").isEmpty()
-                        ? candidate.path("artists").get(0).asText("")
+                        ? extractArtistName(candidate.path("artists").get(0))
                         : candidate.path("artist").asText("");
                 if (isPlausibleMatch(track, cArtist, cTitle)) {
                     return Optional.of(candidate);
@@ -121,9 +121,9 @@ public class DownloadService {
 
                 JsonNode matched = song.get();
 
-                String matchedTitle = matched.path("name").asText("");
+                String matchedTitle  = matched.path("name").asText("");
                 String matchedArtist = matched.path("artists").isArray() && !matched.path("artists").isEmpty()
-                        ? matched.path("artists").get(0).asText("")
+                        ? extractArtistName(matched.path("artists").get(0))
                         : matched.path("artist").asText("");
 
                 if (dedupService.alreadyDownloaded(matchedArtist, matchedTitle)) {
@@ -211,10 +211,11 @@ public class DownloadService {
         String reqArtist = cleanForComparison(requested.getArtist());
         String gotArtist = matchedArtist == null ? "" : cleanForComparison(matchedArtist);
 
-        boolean titleOverlaps = gotTitle.contains(reqTitle) || reqTitle.contains(gotTitle);
-        boolean artistOverlaps = gotArtist.isBlank()
-                || gotArtist.contains(reqArtist)
-                || reqArtist.contains(gotArtist);
+        boolean titleOverlaps  = gotTitle.contains(reqTitle) || reqTitle.contains(gotTitle);
+        // Only check one direction: the matched artist must contain the full requested name.
+        // Allowing reqArtist.contains(gotArtist) was too loose — "tory lanez".contains("lanez")
+        // would accept a completely different artist called "Lanez".
+        boolean artistOverlaps = gotArtist.isBlank() || gotArtist.contains(reqArtist);
 
         return titleOverlaps && artistOverlaps;
     }
@@ -238,6 +239,19 @@ public class DownloadService {
         return s.trim();
     }
 
+    /**
+     * Extracts a displayable artist name from a single element of ytmusicapi's 'artists' array.
+     * The array may contain plain strings ("Tory Lanez") or objects ({"name": "Tory Lanez", "id": "UC..."}).
+     * Calling asText() on an object node returns empty string in Jackson, so we must check the node type.
+     */
+    String extractArtistName(JsonNode artistNode) {
+        if (artistNode == null) return "";
+        // Object node: {"name": "Tory Lanez", "id": "UCxxx"}
+        if (artistNode.isObject()) return artistNode.path("name").asText("");
+        // Plain text node: "Tory Lanez"
+        return artistNode.asText("");
+    }
+
     private List<DownloadResult> pollQueueUntilComplete(int expectedCount, List<Track> tracks, List<JsonNode> songNodes) {
         List<DownloadResult> results = new ArrayList<>();
         long startTime = System.currentTimeMillis();
@@ -248,9 +262,9 @@ public class DownloadService {
             trackLookup.put(t.dedupeKey(), t);
             if (i < songNodes.size()) {
                 JsonNode sn = songNodes.get(i);
-                String mTitle = sn.path("name").asText("");
+                String mTitle  = sn.path("name").asText("");
                 String mArtist = sn.path("artists").isArray() && !sn.path("artists").isEmpty()
-                        ? sn.path("artists").get(0).asText("")
+                        ? extractArtistName(sn.path("artists").get(0))
                         : sn.path("artist").asText("");
                 trackLookup.put(new Track(mArtist, mTitle, null, null).dedupeKey(), t);
                 if (sn.has("id")) trackLookup.put(sn.get("id").asText(), t);
