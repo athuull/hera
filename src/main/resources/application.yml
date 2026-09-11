@@ -16,6 +16,8 @@ downtify:
   bitrate: "320"
   organize-by-artist: true
   download-lyrics: true
+  download-cover-art: true
+  cover-resolution: 600
   max-concurrent-downloads: 4
   poll-interval-ms: 3000
   poll-timeout-ms: 1800000   # 30 minutes

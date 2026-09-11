@@ -1,5 +1,6 @@
 package com.athuull.hera.service;
 
+import com.athuull.hera.model.AppSettings;
 import com.athuull.hera.model.DownloadResult;
 import com.athuull.hera.model.Track;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -388,5 +390,43 @@ class DownloadServiceTest {
         assertEquals(0, completePayload.path("downloaded").asInt());
         assertEquals(1, completePayload.path("failed").asInt());
         assertEquals(1, completePayload.path("skipped").asInt());
+    }
+
+    @Test
+    @DisplayName("configureDowntify pushes download_cover_art and cover_resolution")
+    void testConfigureDowntifyIncludesCoverArtSettings() {
+        com.athuull.hera.client.DowntifyClient fakeClient =
+                Mockito.mock(com.athuull.hera.client.DowntifyClient.class);
+        SettingsService fakeSettingsService = Mockito.mock(SettingsService.class);
+        AppSettings settings = AppSettings.builder()
+                .format("mp3")
+                .bitrate("320")
+                .organizeByArtist(true)
+                .downloadLyrics(true)
+                .downloadCoverArt(true)
+                .coverResolution(800)
+                .build();
+        when(fakeSettingsService.getSettings()).thenReturn(settings);
+
+        DownloadService svc = new DownloadService(
+                fakeClient,
+                Mockito.mock(com.athuull.hera.config.DowntifyConfig.class),
+                fakeSettingsService,
+                Mockito.mock(DeduplicationService.class),
+                Mockito.mock(FormatCleanupService.class),
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class)
+        );
+
+        svc.configureDowntify();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+        verify(fakeClient).updateSettings(captor.capture());
+
+        Map<String, Object> sent = captor.getValue();
+        assertEquals(true, sent.get("download_cover_art"));
+        assertEquals(800, sent.get("cover_resolution"));
+        assertEquals("mp3", sent.get("format"));
+        assertEquals("320", sent.get("bitrate"));
     }
 }

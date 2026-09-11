@@ -29,6 +29,8 @@ public class DownloadService {
     private final ProgressWebSocketHandler progressHandler;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ReentrantLock downloadLock = new ReentrantLock();
+    private TrackMatcher trackMatcher = new TrackMatcher();
+    private DownloadProgressBroadcaster broadcaster;
 
     @Autowired
     public DownloadService(DowntifyClient downtifyClient,
@@ -36,13 +38,37 @@ public class DownloadService {
                            SettingsService settingsService,
                            DeduplicationService dedupService,
                            FormatCleanupService formatCleanupService,
-                           ProgressWebSocketHandler progressHandler) {
+                           ProgressWebSocketHandler progressHandler,
+                           TrackMatcher trackMatcher,
+                           DownloadProgressBroadcaster broadcaster) {
         this.downtifyClient = downtifyClient;
         this.config = config;
         this.settingsService = settingsService;
         this.dedupService = dedupService;
         this.formatCleanupService = formatCleanupService;
         this.progressHandler = progressHandler;
+        this.trackMatcher = trackMatcher != null ? trackMatcher : new TrackMatcher();
+        this.broadcaster = broadcaster != null ? broadcaster : new DownloadProgressBroadcaster(progressHandler);
+    }
+
+    public DownloadService(DowntifyClient downtifyClient,
+                           DowntifyConfig config,
+                           SettingsService settingsService,
+                           DeduplicationService dedupService,
+                           FormatCleanupService formatCleanupService,
+                           ProgressWebSocketHandler progressHandler) {
+        this(downtifyClient, config, settingsService, dedupService, formatCleanupService, progressHandler,
+                new TrackMatcher(), new DownloadProgressBroadcaster(progressHandler));
+    }
+
+    private TrackMatcher getTrackMatcher() {
+        if (trackMatcher == null) trackMatcher = new TrackMatcher();
+        return trackMatcher;
+    }
+
+    private DownloadProgressBroadcaster getBroadcaster() {
+        if (broadcaster == null) broadcaster = new DownloadProgressBroadcaster(progressHandler);
+        return broadcaster;
     }
 
     public void configureDowntify() {
@@ -53,11 +79,13 @@ public class DownloadService {
             settings.put("bitrate", s.getBitrate());
             settings.put("organize_by_artist", s.isOrganizeByArtist());
             settings.put("download_lyrics", s.isDownloadLyrics());
+            settings.put("download_cover_art", s.isDownloadCoverArt());
+            settings.put("cover_resolution", s.getCoverResolution() > 0 ? s.getCoverResolution() : 600);
             settings.put("output", "{artists} - {title}.{output-ext}");
 
             downtifyClient.updateSettings(settings);
-            log.info("Downtify settings pushed: format={}, bitrate={}, organize={}, lyrics={}",
-                    s.getFormat(), s.getBitrate(), s.isOrganizeByArtist(), s.isDownloadLyrics());
+            log.info("Downtify settings pushed: format={}, bitrate={}, organize={}, lyrics={}, coverArt={}, coverResolution={}",
+                    s.getFormat(), s.getBitrate(), s.isOrganizeByArtist(), s.isDownloadLyrics(), s.isDownloadCoverArt(), s.getCoverResolution());
         } catch (Exception e) {
             log.warn("Could not push settings to Downtify: {}", e.getMessage());
         }
@@ -217,175 +245,43 @@ public class DownloadService {
     }
 
     private void broadcastStatus(Track track, String status, String message) {
-        try {
-            Map<String, Object> payload = new LinkedHashMap<>();
-            Map<String, String> song = new LinkedHashMap<>();
-            song.put("artist", track != null ? track.getArtist() : "");
-            song.put("title", track != null ? track.getTitle() : "");
-            payload.put("song", song);
-            payload.put("status", status);
-            payload.put("message", message);
-            progressHandler.broadcast(objectMapper.writeValueAsString(payload));
-        } catch (Exception e) {
-            log.debug("Failed to broadcast status: {}", e.getMessage());
-        }
+        getBroadcaster().broadcastStatus(track, status, message);
     }
 
     private void broadcastBatchStart(int total) {
-        try {
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("type", "batch_start");
-            payload.put("total", total);
-            progressHandler.broadcast(objectMapper.writeValueAsString(payload));
-        } catch (Exception e) {
-            log.debug("Failed to broadcast batch start: {}", e.getMessage());
-        }
+        getBroadcaster().broadcastBatchStart(total);
     }
 
     private void broadcastBatchProgress(int completed, int total) {
-        try {
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("type", "batch_progress");
-            payload.put("completed", completed);
-            payload.put("total", total);
-            progressHandler.broadcast(objectMapper.writeValueAsString(payload));
-        } catch (Exception e) {
-            log.debug("Failed to broadcast batch progress: {}", e.getMessage());
-        }
+        getBroadcaster().broadcastBatchProgress(completed, total);
     }
 
     private void broadcastBatchComplete(int total, long succeeded, long failed, int skipped) {
-        try {
-            Map<String, Object> completeMsg = new LinkedHashMap<>();
-            completeMsg.put("type", "batch_complete");
-            completeMsg.put("total", total);
-            completeMsg.put("downloaded", succeeded);
-            completeMsg.put("failed", failed);
-            completeMsg.put("skipped", skipped);
-            progressHandler.broadcast(objectMapper.writeValueAsString(completeMsg));
-        } catch (Exception e) {
-            log.debug("Could not broadcast batch completion: {}", e.getMessage());
-        }
+        getBroadcaster().broadcastBatchComplete(total, succeeded, failed, skipped);
     }
 
     public boolean isPlausibleMatch(Track requested, String matchedArtist, String matchedTitle) {
-        if (matchedTitle == null || matchedTitle.isBlank()) return false;
-
-        // Titles: only strip feat credits and YouTube noise — (Skit), (Remix), (Live) etc. must survive
-        // so they can distinguish fundamentally different tracks.
-        String reqTitle  = cleanTitle(requested.getTitle());
-        String gotTitle  = cleanTitle(matchedTitle);
-
-        // Artists: strip everything aggressively — feat lists, collaboration credits, etc.
-        String reqArtist = cleanForComparison(requested.getArtist());
-        String gotArtist = matchedArtist == null ? "" : cleanForComparison(matchedArtist);
-
-        // Title: require equality after cleaning.
-        // contains() was too loose — "say it (skit)".contains("say it") = true,
-        // which caused "Say It (Skit)" to be accepted when "Say It" was requested.
-        boolean titleMatches   = gotTitle.equals(reqTitle);
-
-        // Artist: matched artist must contain the full requested name (safe direction only).
-        // reqArtist.contains(gotArtist) was too loose — "tory lanez".contains("lanez") = true,
-        // which caused "Lanez" (different artist) to be accepted for "Tory Lanez".
-        boolean artistOverlaps = false;
-        if (gotArtist.isBlank() || gotArtist.contains(reqArtist)) {
-            artistOverlaps = true;
-        } else if (requested.getArtist() != null && (requested.getArtist().contains(";") || requested.getArtist().contains("/"))) {
-            // Semicolon/slash-separated artist credits (e.g. "Tory Lanez; Tee" or "BoyWithUke; blackbear")
-            String[] parts = requested.getArtist().split("[;/]");
-            for (String part : parts) {
-                String cleanPart = cleanForComparison(part);
-                if (!cleanPart.isBlank() && gotArtist.contains(cleanPart)) {
-                    artistOverlaps = true;
-                    break;
-                }
-            }
-        }
-
-        return titleMatches && artistOverlaps;
+        return getTrackMatcher().isPlausibleMatch(requested, matchedArtist, matchedTitle);
     }
 
-    /**
-     * Cleans a track TITLE for plausibility comparison.
-     * Only strips feat/ft credits and known YouTube Music noise annotations (Official Video, Audio, etc.).
-     * Preserves meaningful parenthetical identifiers like (Skit), (Remix), (Live), (Acoustic), etc.
-     * so that "Say It (Skit)" is NOT accepted as a match for "Say It".
-     */
     String cleanTitle(String input) {
-        if (input == null) return "";
-        String s = input.toLowerCase();
-        // Strip feat/ft credits inside parens or brackets only
-        s = s.replaceAll("\\(\\s*f(?:eat|t)\\.?[^)]*\\)", "");
-        s = s.replaceAll("\\[\\s*f(?:eat|t)\\.?[^\\]]*\\]", "");
-        // Strip YouTube Music noise annotations that don't change the track's identity
-        s = s.replaceAll("\\(\\s*(?:official\\s+(?:video|audio|music\\s+video)|music\\s+video|audio|lyric(?:s|\\s+video)?|visuali[zs]er|hd|hq)\\s*\\)", "");
-        // Strip bare feat./ft. that wasn't already in parens
-        s = s.replaceAll("\\s+f(?:eat|t)\\..*", "");
-        return s.trim();
+        return getTrackMatcher().cleanTitle(input);
     }
 
-    /**
-     * Cleans an ARTIST string for plausibility comparison.
-     * Aggressively strips all parenthetical content (feat lists, collaboration credits, etc.)
-     * because artist display names have no meaningful parenthetical distinctions.
-     */
     String cleanForComparison(String input) {
-        if (input == null) return "";
-        String s = input.toLowerCase();
-        // Strip all parenthesised and bracketed annotations
-        s = s.replaceAll("\\([^)]*\\)", "");
-        s = s.replaceAll("\\[[^\\]]*\\]", "");
-        // Strip everything after a bare feat. / ft. that wasn't already in parens
-        s = s.replaceAll("\\s+feat\\..*", "");
-        s = s.replaceAll("\\s+ft\\..*", "");
-        return s.trim();
+        return getTrackMatcher().cleanForComparison(input);
     }
 
-    /**
-     * Extracts a displayable artist name from a single element of ytmusicapi's 'artists' array.
-     * The array may contain plain strings ("Tory Lanez") or objects ({"name": "Tory Lanez", "id": "UC..."}).
-     * Calling asText() on an object node returns empty string in Jackson, so we must check the node type.
-     */
     String extractArtistName(JsonNode artistNode) {
-        if (artistNode == null) return "";
-        // Object node: {"name": "Tory Lanez", "id": "UCxxx"}
-        if (artistNode.isObject()) return artistNode.path("name").asText("");
-        // Plain text node: "Tory Lanez"
-        return artistNode.asText("");
+        return getTrackMatcher().extractArtistName(artistNode);
     }
 
-    /**
-     * Extracts title from candidate node, checking 'name' and 'title'.
-     */
     String extractCandidateTitle(JsonNode candidate) {
-        if (candidate == null) return "";
-        if (candidate.hasNonNull("name")) {
-            return candidate.get("name").asText("");
-        }
-        return candidate.path("title").asText("");
+        return getTrackMatcher().extractCandidateTitle(candidate);
     }
 
-    /**
-     * Extracts full artist representation from candidate node.
-     * Combines all artists if 'artists' array is present, else falls back to 'artist'.
-     */
     String extractCandidateArtist(JsonNode candidate) {
-        if (candidate == null) return "";
-        JsonNode artistsNode = candidate.path("artists");
-        if (artistsNode.isArray() && !artistsNode.isEmpty()) {
-            List<String> names = new ArrayList<>();
-            for (JsonNode a : artistsNode) {
-                String name = extractArtistName(a);
-                if (!name.isBlank()) {
-                    names.add(name);
-                }
-            }
-            if (!names.isEmpty()) {
-                return String.join(" & ", names);
-            }
-        }
-        return candidate.path("artist").asText("");
+        return getTrackMatcher().extractCandidateArtist(candidate);
     }
 
     private List<DownloadResult> pollQueueUntilComplete(int expectedCount, List<Track> tracks, List<JsonNode> songNodes,
@@ -516,5 +412,14 @@ public class DownloadService {
 
     public List<String> listDownloadedFiles() {
         return downtifyClient.listFiles();
+    }
+
+    public byte[] getCoverArt(String file) {
+        try {
+            return downtifyClient.getCoverArt(file);
+        } catch (Exception e) {
+            log.debug("Could not fetch cover art for '{}': {}", file, e.getMessage());
+            return null;
+        }
     }
 }

@@ -41,4 +41,27 @@ class TrackTest {
         Track t = new Track("Tory Lanez; Tee", "Pink Dolphin Sunset (feat. Tee)", null, null);
         assertEquals("Tory Lanez Tee Pink Dolphin Sunset (feat. Tee)", t.toSearchQuery());
     }
+
+    @Test
+    @DisplayName("dedupeKey normalizes semicolon, ampersand, comma, and slash multi-artist credits identically")
+    void testDedupeKeyMultiArtistConsistency() {
+        Track tSemicolon = new Track("Tory Lanez; Tee", "Pink Dolphin Sunset (feat. Tee)", null, null);
+        Track tAmpersand = new Track("Tory Lanez & Tee", "Pink Dolphin Sunset", null, null);
+        Track tComma = new Track("Tory Lanez, Tee", "Pink Dolphin Sunset", null, null);
+        Track tSlash = new Track("Tory Lanez / Tee", "Pink Dolphin Sunset (feat. Tee)", null, null);
+        Track tSolo = new Track("Tory Lanez", "Pink Dolphin Sunset", null, null);
+
+        assertEquals("tory lanez - pink dolphin sunset", tSemicolon.dedupeKey());
+        assertEquals("tory lanez - pink dolphin sunset", tAmpersand.dedupeKey());
+        assertEquals("tory lanez - pink dolphin sunset", tComma.dedupeKey());
+        assertEquals("tory lanez - pink dolphin sunset", tSlash.dedupeKey());
+        assertEquals("tory lanez - pink dolphin sunset", tSolo.dedupeKey());
+    }
+
+    @Test
+    @DisplayName("cleanTitle does not truncate song titles that have commas")
+    void testCleanTitlePreservesTitlesWithCommas() {
+        Track t = new Track("The Beatles", "Hello, Goodbye", null, null);
+        assertEquals("the beatles - hello goodbye", t.dedupeKey());
+    }
 }

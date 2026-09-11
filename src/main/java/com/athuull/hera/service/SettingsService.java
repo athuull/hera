@@ -46,6 +46,12 @@ public class SettingsService {
     @Value("${downtify.download-lyrics:false}")
     private boolean envLyrics;
 
+    @Value("${downtify.download-cover-art:true}")
+    private boolean envCoverArt;
+
+    @Value("${downtify.cover-resolution:600}")
+    private int envCoverResolution;
+
     private volatile AppSettings settings;
     private File settingsFile;
 
@@ -60,6 +66,9 @@ public class SettingsService {
         if (settingsFile.exists()) {
             try {
                 settings = mapper.readValue(settingsFile, AppSettings.class);
+                if (settings.getCoverResolution() <= 0) {
+                    settings.setCoverResolution(600);
+                }
                 log.info("Loaded settings from {}", settingsFile.getAbsolutePath());
             } catch (IOException e) {
                 log.error("Failed to read settings file, creating from env defaults: {}", e.getMessage());
@@ -82,6 +91,8 @@ public class SettingsService {
                 .bitrate(envBitrate)
                 .organizeByArtist(envOrganize)
                 .downloadLyrics(envLyrics)
+                .downloadCoverArt(envCoverArt)
+                .coverResolution(envCoverResolution > 0 ? envCoverResolution : 600)
                 .build();
         saveSettings();
     }

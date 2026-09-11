@@ -19,4 +19,12 @@ public class AppSettings {
     private String bitrate;
     private boolean organizeByArtist;
     private boolean downloadLyrics;
+    @Builder.Default
+    private boolean downloadCoverArt = true;
+    @Builder.Default
+    private int coverResolution = 600;
+
+    public int getCoverResolution() {
+        return coverResolution > 0 ? coverResolution : 600;
+    }
 }

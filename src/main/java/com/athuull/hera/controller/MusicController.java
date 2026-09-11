@@ -7,6 +7,9 @@ import com.athuull.hera.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -133,6 +136,25 @@ public class MusicController {
     public ResponseEntity<List<String>> library() {
         List<String> files = downloadService.listDownloadedFiles();
         return ResponseEntity.ok(files != null ? files : Collections.emptyList());
+    }
+
+    @GetMapping("/cover")
+    public ResponseEntity<byte[]> cover(@RequestParam("file") String file) {
+        if (file == null || file.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        byte[] cover = downloadService.getCoverArt(file);
+        if (cover == null || cover.length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        HttpHeaders headers = new HttpHeaders();
+        if (cover.length >= 2 && cover[0] == (byte) 0x89 && cover[1] == (byte) 0x50) {
+            headers.setContentType(MediaType.IMAGE_PNG);
+        } else {
+            headers.setContentType(MediaType.IMAGE_JPEG);
+        }
+        headers.setCacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofHours(24)));
+        return new ResponseEntity<>(cover, headers, HttpStatus.OK);
     }
 
     // ─── Format Cleanup ───

@@ -56,4 +56,32 @@ class DeduplicationServiceTest {
         // Track never downloaded
         assertFalse(dedupService.alreadyDownloaded("Radiohead", "Creep"));
     }
+
+    @Test
+    @DisplayName("alreadyDownloaded recognizes collaborative track across semicolon, ampersand, comma, and feat variations")
+    void testAlreadyDownloadedCollaborativeArtistFormats() {
+        when(downtifyClient.listFiles()).thenReturn(List.of(
+                "downloads/Tory Lanez/Tory Lanez, Tee - Pink Dolphin Sunset.mp3",
+                "A$AP Mob/A$AP Mob, A$AP Rocky, Playboi Carti & Big Sean - Frat Rules (feat. A$AP Rocky, Playboi Carti & Big Sean).mp3"
+        ));
+        dedupService.refreshIndex();
+
+        // Requested as semicolon-separated (Last.fm format)
+        assertTrue(dedupService.alreadyDownloaded("Tory Lanez; Tee", "Pink Dolphin Sunset (feat. Tee)"));
+        // Requested as ampersand-separated (YouTube Music format)
+        assertTrue(dedupService.alreadyDownloaded("Tory Lanez & Tee", "Pink Dolphin Sunset"));
+        // Requested as solo primary artist
+        assertTrue(dedupService.alreadyDownloaded("Tory Lanez", "Pink Dolphin Sunset"));
+        // Requested as featured artist
+        assertTrue(dedupService.alreadyDownloaded("Tee", "Pink Dolphin Sunset"));
+        // Requested as comma-separated
+        assertTrue(dedupService.alreadyDownloaded("Tory Lanez, Tee", "Pink Dolphin Sunset"));
+
+        // A$AP Mob collaborative track
+        assertTrue(dedupService.alreadyDownloaded("A$AP Mob", "Frat Rules (feat. A$AP Rocky, Playboi Carti & Big Sean)"));
+        assertTrue(dedupService.alreadyDownloaded("A$AP Mob", "Frat Rules"));
+
+        // Unrelated track should not match
+        assertFalse(dedupService.alreadyDownloaded("Tory Lanez", "Say It"));
+    }
 }
