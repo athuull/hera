@@ -15,7 +15,7 @@ downtify:
   format: mp3
   bitrate: "320"
   organize-by-artist: true
-  download-lyrics: true
+  download-lyrics: false
   download-cover-art: true
   cover-resolution: 600
   max-concurrent-downloads: 4

@@ -31,15 +31,15 @@
         }
 
         [data-theme="light"] {
-            --bg: #f8fafc; --surface: #ffffff; --surface-elevated: #f1f5f9;
-            --border: #e2e8f0; --border-focus: #94a3b8;
-            --text: #1e293b; --text-muted: #64748b; --text-dim: #94a3b8;
-            --heading-color: #0f172a;
-            --btn-bg: #f1f5f9; --btn-border: #cbd5e1; --btn-hover: #e2e8f0; --btn-active: #cbd5e1;
-            --pre-bg: #f8fafc; --pre-text: #334155;
+            --bg: #faf8f5; --surface: #f5f0eb; --surface-elevated: #ede7e0;
+            --border: #ddd5cb; --border-focus: #b0a899;
+            --text: #2c2418; --text-muted: #6b5e50; --text-dim: #9a8e80;
+            --heading-color: #1a1208;
+            --btn-bg: #ede7e0; --btn-border: #d4cbc0; --btn-hover: #e4dcd3; --btn-active: #d4cbc0;
+            --pre-bg: #f2ece5; --pre-text: #3d3224;
             --status-ok: #10b981; --status-warn: #d97706; --status-err: #ef4444;
             --tr-hover: rgba(0, 0, 0, 0.03);
-            --progress-track-bg: #e2e8f0;
+            --progress-track-bg: #ddd5cb;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -361,9 +361,10 @@
                     <option value="1200">1200x1200 (hq)</option>
                 </select>
             </div>
-            <div style="margin-top: 16px;">
-                <button onclick="saveSettings()">[save settings]</button>
-                <button onclick="triggerCleanup()" style="margin-left: 8px;">[cleanup webm]</button>
+            <div style="margin-top: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <button id="save-settings-btn" onclick="saveSettings()">[save settings]</button>
+                <button id="cleanup-btn" onclick="triggerCleanup()">[cleanup webm]</button>
+                <span id="settings-status" style="font-size: 12px; font-weight: 500;"></span>
             </div>
         </fieldset>
     </div>
@@ -937,15 +938,31 @@
     }
 
     async function triggerCleanup() {
+        const btn = document.getElementById('cleanup-btn');
+        const statusEl = document.getElementById('settings-status');
+        if (btn) { btn.disabled = true; btn.innerText = '[cleaning...]'; }
+        if (statusEl) { statusEl.style.color = 'var(--text-muted)'; statusEl.innerText = 'cleaning .webm files...'; }
         try {
             logProgress('system: starting .webm to .mp3 format cleanup...');
             const res = await fetch('/api/cleanup', { method: 'POST' });
             if (!res.ok) throw new Error(`http ${res.status}`);
             const converted = await res.json();
             logProgress(`system: cleanup finished. converted ${converted.length} files`);
+            if (statusEl) {
+                statusEl.style.color = 'var(--status-ok)';
+                statusEl.innerText = `✓ converted ${converted.length} files`;
+                setTimeout(() => { statusEl.innerText = ''; }, 3500);
+            }
             refreshLibrary();
         } catch (e) {
+            if (statusEl) {
+                statusEl.style.color = 'var(--status-err)';
+                statusEl.innerText = `✗ cleanup failed: ${e.message}`;
+                setTimeout(() => { statusEl.innerText = ''; }, 4000);
+            }
             alert(`cleanup failed: ${e.message}`);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerText = '[cleanup webm]'; }
         }
     }
 
@@ -971,6 +988,11 @@
     }
 
     async function saveSettings() {
+        const btn = document.getElementById('save-settings-btn');
+        const statusEl = document.getElementById('settings-status');
+        if (btn) { btn.disabled = true; btn.innerText = '[saving...]'; }
+        if (statusEl) { statusEl.style.color = 'var(--text-muted)'; statusEl.innerText = 'saving...'; }
+
         const s = {
             lastfmApiKey: document.getElementById('set-lastfm-key').value.trim(),
             lastfmUsername: document.getElementById('set-lastfm-user').value.trim(),
@@ -987,10 +1009,30 @@
         try {
             const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) });
             if (!res.ok) throw new Error('failed to save settings');
+            if (btn) { btn.innerText = '[saved ✓]'; }
+            if (statusEl) {
+                statusEl.style.color = 'var(--status-ok)';
+                statusEl.innerText = '✓ settings saved and applied.';
+            }
+            logProgress('system: settings updated and applied.');
             const el = document.getElementById('status-text');
-            el.innerText = 'settings saved and applied.';
-            setTimeout(() => { el.innerText = ''; }, 3500);
-        } catch (e) { alert(`error saving settings: ${e.message}`); }
+            if (el) {
+                el.innerText = 'settings saved and applied.';
+                setTimeout(() => { el.innerText = ''; }, 3500);
+            }
+            setTimeout(() => {
+                if (btn) { btn.disabled = false; btn.innerText = '[save settings]'; }
+                if (statusEl && statusEl.innerText.includes('saved')) { statusEl.innerText = ''; }
+            }, 2500);
+        } catch (e) {
+            if (btn) { btn.disabled = false; btn.innerText = '[save settings]'; }
+            if (statusEl) {
+                statusEl.style.color = 'var(--status-err)';
+                statusEl.innerText = `✗ error: ${e.message}`;
+                setTimeout(() => { statusEl.innerText = ''; }, 4000);
+            }
+            alert(`error saving settings: ${e.message}`);
+        }
     }
 
     function selectAll(checked) {

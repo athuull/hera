@@ -5,7 +5,7 @@
   "format" : "mp3",
   "bitrate" : "320",
   "organizeByArtist" : true,
-  "downloadLyrics" : true,
+  "downloadLyrics" : false,
   "downloadCoverArt" : true,
   "coverResolution" : 600
 }
