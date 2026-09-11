@@ -1,9 +1,8 @@
-pipeline{
+pipeline {
     agent any
 
     environment {
-
-        DOCKHERHUB_CREDENTIALS = credentials('dockerhub-creds');
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
         IMAGE_NAME = 'athuul/hera:latest'
     }
 
@@ -11,7 +10,6 @@ pipeline{
         stage('Checkout') {
             steps {
                 checkout scm
-                
             }
         }
 
@@ -23,8 +21,7 @@ pipeline{
 
         stage('Push to Docker Hub') {
             steps {
-                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --passsword-stdin'
-
+                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
                 sh 'docker push $IMAGE_NAME'
             }
         }
