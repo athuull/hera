@@ -34,4 +34,11 @@ class TrackTest {
         Track t = new Track("Radiohead", "Creep", null, null);
         assertEquals("Radiohead Creep", t.toSearchQuery());
     }
+
+    @Test
+    @DisplayName("toSearchQuery replaces semicolons with spaces for multi-artist credits")
+    void testToSearchQueryWithSemicolons() {
+        Track t = new Track("Tory Lanez; Tee", "Pink Dolphin Sunset (feat. Tee)", null, null);
+        assertEquals("Tory Lanez Tee Pink Dolphin Sunset (feat. Tee)", t.toSearchQuery());
+    }
 }

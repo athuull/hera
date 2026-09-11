@@ -14,7 +14,9 @@ public class Track {
     private String duration;
 
     public String toSearchQuery() {
-        return artist + " " + title;
+        String cleanArtist = artist != null ? artist.replace(';', ' ').replaceAll("\\s+", " ").trim() : "";
+        String cleanTitle = title != null ? title.trim() : "";
+        return (cleanArtist + " " + cleanTitle).trim();
     }
 
     public String dedupeKey() {

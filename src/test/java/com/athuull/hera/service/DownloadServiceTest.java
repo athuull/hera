@@ -124,6 +124,30 @@ class DownloadServiceTest {
         assertTrue(downloadService.isPlausibleMatch(requested, "Tory Lanez & Bryson Tiller", "Say It"));
     }
 
+    @Test
+    @DisplayName("isPlausibleMatch accepts semicolon-separated artists matching primary artist (e.g. Tory Lanez; Tee)")
+    void testPlausibleMatchSemicolonPrimaryArtist() {
+        Track requested = new Track("Tory Lanez; Tee", "Pink Dolphin Sunset (feat. Tee)", null, null);
+        assertTrue(downloadService.isPlausibleMatch(requested, "Tory Lanez", "Pink Dolphin Sunset"),
+                "Should match primary artist when requested has semicolon-separated artists");
+    }
+
+    @Test
+    @DisplayName("isPlausibleMatch accepts semicolon-separated artists matching collaborative credit")
+    void testPlausibleMatchSemicolonCollabArtist() {
+        Track requested = new Track("BoyWithUke; blackbear", "IDGAF", null, null);
+        assertTrue(downloadService.isPlausibleMatch(requested, "BoyWithUke", "IDGAF (feat. blackbear)"),
+                "Should match primary artist and stripped feat title");
+    }
+
+    @Test
+    @DisplayName("isPlausibleMatch rejects different artist even with semicolon requested artists")
+    void testPlausibleMatchSemicolonRejectsWrongArtist() {
+        Track requested = new Track("Tory Lanez; Tee", "Pink Dolphin Sunset", null, null);
+        assertFalse(downloadService.isPlausibleMatch(requested, "Lanez", "Pink Dolphin Sunset"),
+                "Should still reject 'Lanez' even when multiple artists are requested");
+    }
+
 
     // ─── searchForTrack ───────────────────────────────────────────────────────
 

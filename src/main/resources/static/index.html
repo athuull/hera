@@ -100,6 +100,29 @@
         .status-pill.connected { color: var(--status-ok); }
         .status-pill.disconnected { color: var(--status-err); }
         .status-pill.connecting { color: var(--status-warn); }
+        .status-pill.active { color: var(--status-warn); }
+        .status-pill.idle { color: var(--text-dim); }
+
+        .loading-pulse {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-muted);
+            font-size: 13px;
+            padding: 16px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 100%;
+        }
+
+        .loading-pulse .spinner-frame {
+            color: var(--status-warn);
+            font-weight: 700;
+            display: inline-block;
+            font-family: var(--font-mono);
+            min-width: 28px;
+        }
 
         .header-actions {
             display: flex;
@@ -499,7 +522,7 @@
 <hr>
 
 <!-- progress -->
-<h2>download progress</h2>
+<h2>download progress <span id="download-status" class="status-pill idle" style="font-size: 12px; font-weight: normal; margin-left: 6px;">[idle]</span></h2>
 <pre id="progress-feed">no active downloads.</pre>
 <div style="margin-top: 10px;">
     <button onclick="clearProgress()">[clear log]</button>
@@ -601,11 +624,32 @@
         };
     }
 
+    function setDownloadStatus(active, text) {
+        const elem = document.getElementById('download-status');
+        if (!elem) return;
+        if (active) {
+            elem.className = 'status-pill active';
+            elem.innerText = text || '[● downloading...]';
+        } else {
+            elem.className = text && text.includes('✓') ? 'status-pill connected' : 'status-pill idle';
+            elem.innerText = text || '[idle]';
+        }
+    }
+
     function handleWSMessage(data) {
         if (data.type === 'batch_complete') {
             const msg = `batch complete: ${data.downloaded} downloaded, ${data.failed} failed`;
             logProgress(msg);
             refreshLibrary();
+            setDownloadStatus(false, '[✓ complete]');
+            setTimeout(() => {
+                setDownloadStatus(false, '[idle]');
+            }, 4000);
+            const dlBtn = document.getElementById('download-selected-btn');
+            if (dlBtn) {
+                dlBtn.disabled = false;
+                dlBtn.innerText = '[download selected]';
+            }
             return;
         }
 
@@ -614,6 +658,10 @@
                          song.name || data.filename || data.message || 'unknown track';
         const status = data.status || 'unknown';
         const progress = data.progress || 0;
+
+        if (status === 'downloading' || status === 'queued') {
+            setDownloadStatus(true, `[● ${status}: ${Math.round(progress)}%]`);
+        }
 
         const lastLog = lastProgressLog[songName];
         if (!lastLog || lastLog.status !== status || Math.floor(progress / 10) > Math.floor(lastLog.progress / 10)) {
@@ -679,6 +727,21 @@
         btn.disabled = true;
         btn.innerText = '[searching...]';
 
+        const tableContainer = document.getElementById('results-table');
+        const actions = document.getElementById('results-actions');
+        actions.classList.add('hidden');
+
+        const spinnerFrames = ['[⠋]', '[⠙]', '[⠹]', '[⠸]', '[⠼]', '[⠴]', '[⠦]', '[⠧]', '[⠇]', '[⠏]'];
+        let frameIdx = 0;
+        const searchLabel = strategy.toLowerCase().replace(/_/g, ' ');
+        tableContainer.innerHTML = `<div class="loading-pulse"><span id="search-spinner" class="spinner-frame">${spinnerFrames[0]}</span> <span>searching tracks via ${escapeHtml(searchLabel)}...</span></div>`;
+
+        const spinInterval = setInterval(() => {
+            frameIdx = (frameIdx + 1) % spinnerFrames.length;
+            const elem = document.getElementById('search-spinner');
+            if (elem) elem.innerText = spinnerFrames[frameIdx];
+        }, 80);
+
         try {
             const response = await fetch(buildSearchUrl(strategy, seed, limit));
             if (!response.ok) {
@@ -688,8 +751,9 @@
             recommendations = await response.json();
             renderResults(recommendations);
         } catch (e) {
-            alert(`search failed: ${e.message}`);
+            tableContainer.innerHTML = `<p style="color: var(--status-err);">search failed: ${escapeHtml(e.message)}</p>`;
         } finally {
+            clearInterval(spinInterval);
             btn.disabled = false;
             btn.innerText = '[search]';
         }
@@ -783,6 +847,13 @@
 
         if (selected.length === 0) { alert('select at least one track'); return; }
 
+        const dlBtn = document.getElementById('download-selected-btn');
+        if (dlBtn) {
+            dlBtn.disabled = true;
+            dlBtn.innerText = `[queuing ${selected.length}...]`;
+        }
+        setDownloadStatus(true, `[● downloading ${selected.length} track${selected.length > 1 ? 's' : ''}...]`);
+
         try {
             const response = await fetch('/api/download/tracks', {
                 method: 'POST',
@@ -791,8 +862,16 @@
             });
             if (!response.ok) throw new Error(`http ${response.status}`);
             logProgress(`started download of ${selected.length} tracks...`);
+            if (dlBtn) {
+                dlBtn.innerText = '[downloading...]';
+            }
         } catch (e) {
             alert(`download failed: ${e.message}`);
+            if (dlBtn) {
+                dlBtn.disabled = false;
+                dlBtn.innerText = '[download selected]';
+            }
+            setDownloadStatus(false);
         }
     }
 
@@ -833,12 +912,24 @@
     }
 
     async function triggerSchedule() {
+        const btn = document.querySelector('button[onclick="triggerSchedule()"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = '[triggering...]';
+        }
+        setDownloadStatus(true, '[● auto-download active...]');
         try {
             const res = await fetch('/api/schedule/trigger', { method: 'POST' });
             if (!res.ok) throw new Error(`http ${res.status}`);
             logProgress('system: triggered scheduled download pipeline');
         } catch (e) {
             alert(`sync trigger failed: ${e.message}`);
+            setDownloadStatus(false);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = '[auto-download now]';
+            }
         }
     }
 

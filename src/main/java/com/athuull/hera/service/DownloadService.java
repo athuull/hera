@@ -71,10 +71,8 @@ public class DownloadService {
             }
 
             for (JsonNode candidate : results) {
-                String cTitle  = candidate.path("name").asText("");
-                String cArtist = candidate.path("artists").isArray() && !candidate.path("artists").isEmpty()
-                        ? extractArtistName(candidate.path("artists").get(0))
-                        : candidate.path("artist").asText("");
+                String cTitle  = extractCandidateTitle(candidate);
+                String cArtist = extractCandidateArtist(candidate);
                 if (isPlausibleMatch(track, cArtist, cTitle)) {
                     return Optional.of(candidate);
                 }
@@ -121,10 +119,8 @@ public class DownloadService {
 
                 JsonNode matched = song.get();
 
-                String matchedTitle  = matched.path("name").asText("");
-                String matchedArtist = matched.path("artists").isArray() && !matched.path("artists").isEmpty()
-                        ? extractArtistName(matched.path("artists").get(0))
-                        : matched.path("artist").asText("");
+                String matchedTitle  = extractCandidateTitle(matched);
+                String matchedArtist = extractCandidateArtist(matched);
 
                 if (dedupService.alreadyDownloaded(matchedArtist, matchedTitle)) {
                     log.debug("Skipping (resolved match already downloaded): {} - {}", matchedArtist, matchedTitle);
@@ -223,7 +219,20 @@ public class DownloadService {
         // Artist: matched artist must contain the full requested name (safe direction only).
         // reqArtist.contains(gotArtist) was too loose — "tory lanez".contains("lanez") = true,
         // which caused "Lanez" (different artist) to be accepted for "Tory Lanez".
-        boolean artistOverlaps = gotArtist.isBlank() || gotArtist.contains(reqArtist);
+        boolean artistOverlaps = false;
+        if (gotArtist.isBlank() || gotArtist.contains(reqArtist)) {
+            artistOverlaps = true;
+        } else if (requested.getArtist() != null && (requested.getArtist().contains(";") || requested.getArtist().contains("/"))) {
+            // Semicolon/slash-separated artist credits (e.g. "Tory Lanez; Tee" or "BoyWithUke; blackbear")
+            String[] parts = requested.getArtist().split("[;/]");
+            for (String part : parts) {
+                String cleanPart = cleanForComparison(part);
+                if (!cleanPart.isBlank() && gotArtist.contains(cleanPart)) {
+                    artistOverlaps = true;
+                    break;
+                }
+            }
+        }
 
         return titleMatches && artistOverlaps;
     }
@@ -277,6 +286,39 @@ public class DownloadService {
         return artistNode.asText("");
     }
 
+    /**
+     * Extracts title from candidate node, checking 'name' and 'title'.
+     */
+    String extractCandidateTitle(JsonNode candidate) {
+        if (candidate == null) return "";
+        if (candidate.hasNonNull("name")) {
+            return candidate.get("name").asText("");
+        }
+        return candidate.path("title").asText("");
+    }
+
+    /**
+     * Extracts full artist representation from candidate node.
+     * Combines all artists if 'artists' array is present, else falls back to 'artist'.
+     */
+    String extractCandidateArtist(JsonNode candidate) {
+        if (candidate == null) return "";
+        JsonNode artistsNode = candidate.path("artists");
+        if (artistsNode.isArray() && !artistsNode.isEmpty()) {
+            List<String> names = new ArrayList<>();
+            for (JsonNode a : artistsNode) {
+                String name = extractArtistName(a);
+                if (!name.isBlank()) {
+                    names.add(name);
+                }
+            }
+            if (!names.isEmpty()) {
+                return String.join(" & ", names);
+            }
+        }
+        return candidate.path("artist").asText("");
+    }
+
     private List<DownloadResult> pollQueueUntilComplete(int expectedCount, List<Track> tracks, List<JsonNode> songNodes) {
         List<DownloadResult> results = new ArrayList<>();
         long startTime = System.currentTimeMillis();
@@ -287,10 +329,8 @@ public class DownloadService {
             trackLookup.put(t.dedupeKey(), t);
             if (i < songNodes.size()) {
                 JsonNode sn = songNodes.get(i);
-                String mTitle  = sn.path("name").asText("");
-                String mArtist = sn.path("artists").isArray() && !sn.path("artists").isEmpty()
-                        ? extractArtistName(sn.path("artists").get(0))
-                        : sn.path("artist").asText("");
+                String mTitle  = extractCandidateTitle(sn);
+                String mArtist = extractCandidateArtist(sn);
                 trackLookup.put(new Track(mArtist, mTitle, null, null).dedupeKey(), t);
                 if (sn.has("id")) trackLookup.put(sn.get("id").asText(), t);
                 if (sn.has("videoId")) trackLookup.put(sn.get("videoId").asText(), t);
