@@ -381,7 +381,7 @@
 <h2>find music</h2>
 <div class="search-panel">
     <div class="search-group">
-        <label>strategy:</label>
+        <label>discovery strategy:</label>
         <select id="strategy" onchange="toggleSeedInput()">
             <option value="HYBRID">hybrid (my profile)</option>
             <option value="USER_PERSONALIZED">my top artists</option>
@@ -400,17 +400,18 @@
         <label id="seed-label">search term:</label>
         <input type="text" id="seed" style="width: 280px;">
     </div>
-    <button id="search-btn" onclick="searchRecommendations()">[search]</button>
+    <button id="search-btn" onclick="searchRecommendations()">[discover recommendations]</button>
 </div>
 <div class="url-download-panel" style="margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-    <input type="text" id="url-download-input" placeholder="paste album, playlist, or track link (spotify / youtube)..." style="flex: 1; min-width: 280px; max-width: 520px;" onkeydown="if(event.key==='Enter') downloadByUrl()">
+    <input type="text" id="direct-search-input" placeholder="search song name (e.g. family ties) or paste link..." style="flex: 1; min-width: 280px; max-width: 520px;" onkeydown="handleDirectInputKey(event)">
+    <button id="direct-search-btn" onclick="handleDirectSearch()">[search songs]</button>
     <button id="download-url-btn" onclick="downloadByUrl()">[download link]</button>
-    <span id="url-download-status" style="font-size: 12px; font-weight: 500;"></span>
+    <span id="direct-search-status" style="font-size: 12px; font-weight: 500;"></span>
 </div>
 
 <hr>
 
-<h2>recommendations</h2>
+<h2 id="results-heading">results</h2>
 <div id="results-actions" class="results-toolbar hidden">
     <button onclick="selectAll(true)">[select all]</button>
     <button onclick="selectAll(false)">[deselect all]</button>
@@ -502,7 +503,8 @@
 </footer>
 
 <script>
-    let recommendations = [], libraryData = [], historyData = [], ws = null;
+    let recommendations = [], searchResults = [], libraryData = [], historyData = [], ws = null;
+    let resultMode = 'search';
     let batchState = {
         active: false,
         total: 0,
@@ -640,9 +642,7 @@
 
     function handleWSMessage(data) {
         if (data.type === 'batch_start') {
-            if (!batchState.active || batchState.total !== data.total) {
-                startBatch(data.total);
-            }
+            startBatch(data.total);
             return;
         }
 
@@ -674,15 +674,17 @@
             refreshLibrary();
             refreshHistory();
             setTimeout(() => {
-                setDownloadStatus(false, '[idle]');
-                const pillT = document.getElementById('track-status-pill');
-                const pillB = document.getElementById('batch-status-pill');
-                if (pillT) { pillT.className = 'status-pill idle'; pillT.innerText = '[idle]'; }
-                if (pillB) { pillB.className = 'status-pill idle'; pillB.innerText = '[idle]'; }
-                const cardT = document.getElementById('card-track');
-                const cardB = document.getElementById('card-batch');
-                if (cardT) cardT.classList.remove('active');
-                if (cardB) cardB.classList.remove('active');
+                if (!batchState.active) {
+                    setDownloadStatus(false, '[idle]');
+                    const pillT = document.getElementById('track-status-pill');
+                    const pillB = document.getElementById('batch-status-pill');
+                    if (pillT) { pillT.className = 'status-pill idle'; pillT.innerText = '[idle]'; }
+                    if (pillB) { pillB.className = 'status-pill idle'; pillB.innerText = '[idle]'; }
+                    const cardT = document.getElementById('card-track');
+                    const cardB = document.getElementById('card-batch');
+                    if (cardT) cardT.classList.remove('active');
+                    if (cardB) cardB.classList.remove('active');
+                }
             }, 5000);
             const dlBtn = document.getElementById('download-selected-btn');
             if (dlBtn) { dlBtn.disabled = false; dlBtn.innerText = '[download selected]'; }
@@ -696,9 +698,12 @@
         const progress = data.progress !== undefined ? data.progress : 0;
 
         if (status === 'downloading' || status === 'queued') {
-            if (!batchState.active) {
+            if (!batchState.active || batchState.completed >= batchState.total) {
                 batchState.active = true;
                 batchState.total = Math.max(1, batchState.total || 1);
+                if (batchState.completed >= batchState.total) {
+                    batchState.completed = 0;
+                }
             }
             batchState.currentTrack = songName;
             batchState.currentProgress = progress;
@@ -706,33 +711,52 @@
             updateTrackUI(songName, progress, `[● ${Math.round(progress)}%]`, 'downloading audio stream...', 'active');
 
             const smoothBatchPct = batchState.total > 0
-                ? Math.min(100, ((batchState.completed + progress / 100) / batchState.total) * 100)
+                ? Math.min(99, ((batchState.completed + progress / 100) / batchState.total) * 100)
                 : progress;
             const remaining = Math.max(0, batchState.total - batchState.completed - 1);
             updateBatchUI(batchState.completed, batchState.total, smoothBatchPct, `in-progress: 1 | remaining: ${remaining}`, 'active');
         } else if (status === 'finished' || status === 'done') {
-            if (!batchState.active) batchState.total = Math.max(1, batchState.total || 1);
-            batchState.completed = Math.min(batchState.total, batchState.completed + 1);
+            if (!batchState.active) {
+                batchState.active = true;
+                batchState.total = Math.max(1, batchState.total || 1);
+            }
+            if (batchState.completed < batchState.total) {
+                batchState.completed = Math.min(batchState.total, batchState.completed + 1);
+            }
             updateTrackUI(songName, 100, '[✓ done]', 'downloaded and saved to library', 'connected');
             const batchPct = batchState.total > 0 ? (batchState.completed / batchState.total) * 100 : 100;
-            updateBatchUI(batchState.completed, batchState.total, batchPct, `completed: ${batchState.completed} | remaining: ${Math.max(0, batchState.total - batchState.completed)}`, 'active');
+            updateBatchUI(batchState.completed, batchState.total, batchPct, `completed: ${batchState.completed} / ${batchState.total}`, batchState.completed >= batchState.total ? 'connected' : 'active');
             logProgress(`[✓ done] ${songName}`);
+            refreshLibrary();
+            refreshHistory();
         } else if (status === 'skipped') {
-            if (!batchState.active) batchState.total = Math.max(1, batchState.total || 1);
+            if (!batchState.active) {
+                batchState.active = true;
+                batchState.total = Math.max(1, batchState.total || 1);
+            }
             batchState.skipped++;
-            batchState.completed = Math.min(batchState.total, batchState.completed + 1);
+            if (batchState.completed < batchState.total) {
+                batchState.completed = Math.min(batchState.total, batchState.completed + 1);
+            }
             updateTrackUI(songName, 100, '[skipped]', data.message || 'already in library', 'idle');
             const batchPct = batchState.total > 0 ? (batchState.completed / batchState.total) * 100 : 100;
-            updateBatchUI(batchState.completed, batchState.total, batchPct, `skipped: ${songName} (already downloaded)`, 'active');
-            logProgress(`[skipped] ${songName} (${data.message || 'already downloaded'})`);
+            updateBatchUI(batchState.completed, batchState.total, batchPct, `skipped: ${songName} (already in library)`, 'active');
+            logProgress(`[skipped] ${songName} (${data.message || 'already in library'})`);
+            refreshHistory();
         } else if (status === 'error') {
-            if (!batchState.active) batchState.total = Math.max(1, batchState.total || 1);
+            if (!batchState.active) {
+                batchState.active = true;
+                batchState.total = Math.max(1, batchState.total || 1);
+            }
             batchState.failed++;
-            batchState.completed = Math.min(batchState.total, batchState.completed + 1);
+            if (batchState.completed < batchState.total) {
+                batchState.completed = Math.min(batchState.total, batchState.completed + 1);
+            }
             updateTrackUI(songName, 0, '[error]', data.message || 'download error', 'disconnected');
             const batchPct = batchState.total > 0 ? (batchState.completed / batchState.total) * 100 : 0;
             updateBatchUI(batchState.completed, batchState.total, batchPct, `failed: ${songName}`, 'active');
             logProgress(`[error] ${songName}: ${data.message || 'failed'}`);
+            refreshHistory();
         }
     }
 
@@ -771,6 +795,151 @@
         }
     }
 
+    function formatDuration(sec) {
+        if (!sec || isNaN(sec)) return '-';
+        const s = parseInt(sec);
+        const m = Math.floor(s / 60);
+        const rem = s % 60;
+        return `${m}:${rem.toString().padStart(2, '0')}`;
+    }
+
+    function handleDirectInputKey(e) {
+        if (e.key === 'Enter') {
+            const val = (document.getElementById('direct-search-input').value || '').trim();
+            if (val.startsWith('http://') || val.startsWith('https://')) {
+                downloadByUrl();
+            } else {
+                handleDirectSearch();
+            }
+        }
+    }
+
+    async function handleDirectSearch() {
+        const input = document.getElementById('direct-search-input');
+        const query = (input.value || '').trim();
+        const btn = document.getElementById('direct-search-btn');
+        const statusEl = document.getElementById('direct-search-status');
+        const tableContainer = document.getElementById('results-table');
+        const headingEl = document.getElementById('results-heading');
+
+        if (!query) {
+            if (statusEl) {
+                statusEl.style.color = 'var(--status-err)';
+                statusEl.innerText = 'enter a song name';
+                setTimeout(() => { statusEl.innerText = ''; }, 3000);
+            }
+            input.focus();
+            return;
+        }
+
+        if (query.startsWith('http://') || query.startsWith('https://')) {
+            downloadByUrl();
+            return;
+        }
+
+        if (btn) { btn.disabled = true; btn.innerText = '[searching...]'; }
+        if (headingEl) headingEl.innerText = `search: "${query}"`;
+        document.getElementById('results-actions').classList.add('hidden');
+
+        const frames = ['[⠋]', '[⠙]', '[⠹]', '[⠸]', '[⠼]', '[⠴]', '[⠦]', '[⠧]', '[⠇]', '[⠏]'];
+        let idx = 0;
+        tableContainer.innerHTML = `<div class="loading-pulse"><span id="search-spinner" class="spinner-frame">${frames[0]}</span> <span>searching youtube music for "${escapeHtml(query)}"...</span></div>`;
+        const spinTimer = setInterval(() => {
+            idx = (idx + 1) % frames.length;
+            const el = document.getElementById('search-spinner');
+            if (el) el.innerText = frames[idx];
+        }, 80);
+
+        try {
+            const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+            if (!res.ok) throw new Error(`http ${res.status}`);
+            searchResults = await res.json();
+            resultMode = 'search';
+            renderSearchResults(searchResults);
+        } catch (e) {
+            tableContainer.innerHTML = `<p style="color: var(--status-err);">search failed: ${escapeHtml(e.message)}</p>`;
+        } finally {
+            clearInterval(spinTimer);
+            if (btn) { btn.disabled = false; btn.innerText = '[search songs]'; }
+        }
+    }
+
+    function renderSearchResults(songs) {
+        const container = document.getElementById('results-table');
+        const actions = document.getElementById('results-actions');
+        if (!songs || songs.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-muted);">no songs found on youtube music. try different keywords.</p>';
+            actions.classList.add('hidden');
+            return;
+        }
+        actions.classList.remove('hidden');
+
+        let html = `<div class="table-container"><table><thead><tr>
+            <th style="width: 40px; text-align: center;"><input type="checkbox" id="select-all-header" onchange="selectAll(this.checked)"></th>
+            <th style="width: 44px;"></th>
+            <th>song / title</th>
+            <th>artist</th>
+            <th>album</th>
+            <th style="width: 70px;">duration</th>
+            <th style="width: 100px; text-align: center;">action</th>
+        </tr></thead><tbody>`;
+
+        songs.forEach((song, i) => {
+            const title = song.name || song.title || 'unknown';
+            const artist = Array.isArray(song.artists) ? song.artists.join(', ') : (song.artists || song.artist || 'unknown');
+            const album = song.album_name || song.album || '-';
+            const duration = formatDuration(song.duration);
+            const cover = song.cover_url || '';
+            const isExplicit = !!song.explicit;
+
+            html += `<tr>
+                <td style="text-align: center;"><input type="checkbox" class="track-check" data-index="${i}" onchange="updateSelectedCount()"></td>
+                <td style="text-align: center;">
+                    ${cover ? `<img src="${escapeHtml(cover)}" class="track-thumb" onerror="this.style.display='none'" alt="" />` : ''}
+                </td>
+                <td style="font-weight: 600; color: var(--heading-color);">
+                    ${escapeHtml(title)}
+                    ${isExplicit ? '<span class="status-badge failed" style="font-size: 10px; margin-left: 6px;">[e]</span>' : ''}
+                </td>
+                <td>${escapeHtml(artist)}</td>
+                <td style="color: var(--text-muted);">${escapeHtml(album)}</td>
+                <td style="color: var(--text-muted); font-size: 12.5px;">${escapeHtml(duration)}</td>
+                <td style="text-align: center;">
+                    <button id="dl-btn-${i}" onclick="downloadSingleSearchResult(${i})" style="padding: 3px 8px; font-size: 11.5px;">[download]</button>
+                </td>
+            </tr>`;
+        });
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+        updateSelectedCount();
+    }
+
+    async function downloadSingleSearchResult(i) {
+        const song = searchResults[i];
+        if (!song) return;
+        const artistStr = Array.isArray(song.artists) ? song.artists.join(', ') : (song.artists || song.artist || '');
+        const titleStr = song.name || song.title || '';
+        const track = { artist: artistStr, title: titleStr };
+
+        const btn = document.getElementById(`dl-btn-${i}`);
+        if (btn) { btn.disabled = true; btn.innerText = '[queuing...]'; }
+        startBatch(1);
+        try {
+            const res = await fetch('/api/download/tracks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tracks: [track] })
+            });
+            if (!res.ok) throw new Error(`http ${res.status}`);
+            if (btn) { btn.innerText = '[queued ✓]'; }
+        } catch (e) {
+            alert(`download failed: ${e.message}`);
+            if (btn) { btn.disabled = false; btn.innerText = '[download]'; }
+            setDownloadStatus(false);
+        }
+    }
+
     async function searchRecommendations() {
         const strategy = document.getElementById('strategy').value;
         const seed = document.getElementById('seed').value.trim();
@@ -796,13 +965,15 @@
         }
 
         const btn = document.getElementById('search-btn');
-        btn.disabled = true; btn.innerText = '[searching...]';
+        btn.disabled = true; btn.innerText = '[discovering...]';
+        const headingEl = document.getElementById('results-heading');
+        if (headingEl) headingEl.innerText = 'recommendations';
         const tableContainer = document.getElementById('results-table');
         document.getElementById('results-actions').classList.add('hidden');
 
         const frames = ['[⠋]', '[⠙]', '[⠹]', '[⠸]', '[⠼]', '[⠴]', '[⠦]', '[⠧]', '[⠇]', '[⠏]'];
         let idx = 0;
-        tableContainer.innerHTML = `<div class="loading-pulse"><span id="search-spinner" class="spinner-frame">${frames[0]}</span> <span>searching tracks via ${escapeHtml(strategy.toLowerCase().replace(/_/g, ' '))}...</span></div>`;
+        tableContainer.innerHTML = `<div class="loading-pulse"><span id="search-spinner" class="spinner-frame">${frames[0]}</span> <span>discovering tracks via ${escapeHtml(strategy.toLowerCase().replace(/_/g, ' '))}...</span></div>`;
         const spinTimer = setInterval(() => {
             idx = (idx + 1) % frames.length;
             const el = document.getElementById('search-spinner');
@@ -813,12 +984,13 @@
             const res = await fetch(buildSearchUrl(strategy, seed, limit));
             if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || `http ${res.status}`); }
             recommendations = await res.json();
+            resultMode = 'recommendations';
             renderResults(recommendations);
         } catch (e) {
-            tableContainer.innerHTML = `<p style="color: var(--status-err);">search failed: ${escapeHtml(e.message)}</p>`;
+            tableContainer.innerHTML = `<p style="color: var(--status-err);">discovery failed: ${escapeHtml(e.message)}</p>`;
         } finally {
             clearInterval(spinTimer);
-            btn.disabled = false; btn.innerText = '[search]';
+            btn.disabled = false; btn.innerText = '[discover recommendations]';
         }
     }
 
@@ -875,10 +1047,22 @@
 
     async function downloadSelected() {
         const selected = [];
-        document.querySelectorAll('.track-check:checked').forEach(cb => {
-            const r = recommendations[parseInt(cb.dataset.index)];
-            if (r && r.track) selected.push({ artist: r.track.artist, title: r.track.title });
-        });
+        if (resultMode === 'search') {
+            document.querySelectorAll('.track-check:checked').forEach(cb => {
+                const song = searchResults[parseInt(cb.dataset.index)];
+                if (song) {
+                    const artistStr = Array.isArray(song.artists) ? song.artists.join(', ') : (song.artists || song.artist || '');
+                    const titleStr = song.name || song.title || '';
+                    selected.push({ artist: artistStr, title: titleStr });
+                }
+            });
+        } else {
+            document.querySelectorAll('.track-check:checked').forEach(cb => {
+                const r = recommendations[parseInt(cb.dataset.index)];
+                if (r && r.track) selected.push({ artist: r.track.artist, title: r.track.title });
+            });
+        }
+
         if (selected.length === 0) { alert('select at least one track'); return; }
         const btn = document.getElementById('download-selected-btn');
         if (btn) { btn.disabled = true; btn.innerText = `[queuing ${selected.length}...]`; }
@@ -895,15 +1079,15 @@
     }
 
     async function downloadByUrl() {
-        const input = document.getElementById('url-download-input');
+        const input = document.getElementById('direct-search-input');
         const btn = document.getElementById('download-url-btn');
-        const statusEl = document.getElementById('url-download-status');
+        const statusEl = document.getElementById('direct-search-status');
         const url = input.value.trim();
 
         if (!url) {
             if (statusEl) {
                 statusEl.style.color = 'var(--status-err)';
-                statusEl.innerText = 'please paste a link';
+                statusEl.innerText = 'please paste a link or song name';
                 setTimeout(() => { statusEl.innerText = ''; }, 3000);
             }
             input.focus();
@@ -911,17 +1095,13 @@
         }
 
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            if (statusEl) {
-                statusEl.style.color = 'var(--status-err)';
-                statusEl.innerText = 'must start with http:// or https://';
-                setTimeout(() => { statusEl.innerText = ''; }, 3500);
-            }
-            input.focus();
+            handleDirectSearch();
             return;
         }
 
         if (btn) { btn.disabled = true; btn.innerText = '[queuing...]'; }
         if (statusEl) { statusEl.style.color = 'var(--text-muted)'; statusEl.innerText = 'processing link...'; }
+        startBatch(1);
 
         try {
             const res = await fetch('/api/download/url', {
@@ -952,6 +1132,7 @@
                 statusEl.innerText = `✗ error: ${e.message}`;
                 setTimeout(() => { statusEl.innerText = ''; }, 4000);
             }
+            setDownloadStatus(false);
         }
     }
 
@@ -1153,7 +1334,7 @@
         items.forEach(item => {
             const timeStr = formatHistoryTime(item.timestamp);
             const statusClass = (item.status || '').toLowerCase() === 'success' ? 'success' : ((item.status || '').toLowerCase() === 'failed' ? 'failed' : 'skipped');
-            const statusLabel = (item.status || '').toLowerCase() === 'success' ? '[✓ success]' : ((item.status || '').toLowerCase() === 'failed' ? '[✗ failed]' : '[skipped]');
+            const statusLabel = (item.status || '').toLowerCase() === 'success' ? '[success]' : ((item.status || '').toLowerCase() === 'failed' ? '[failed]' : '[skipped]');
             const sourceLabel = formatSourceLabel(item.source);
             const displayTitle = item.title || item.filename || 'unknown';
             const displayArtist = item.artist || '-';

@@ -70,29 +70,70 @@ public class DownloadService {
     }
 
     public Optional<JsonNode> searchForTrack(Track track) {
-        try {
-            JsonNode results = downtifyClient.searchSongs(track.toSearchQuery());
-            if (results == null || !results.isArray() || results.isEmpty()) {
-                return Optional.empty();
-            }
+        if (track == null) return Optional.empty();
 
-            for (JsonNode candidate : results) {
-                String cTitle  = extractCandidateTitle(candidate);
-                String cArtist = extractCandidateArtist(candidate);
-                if (isPlausibleMatch(track, cArtist, cTitle)) {
-                    return Optional.of(candidate);
+        List<String> searchQueries = buildSearchQueries(track);
+        for (String query : searchQueries) {
+            try {
+                JsonNode results = downtifyClient.searchSongs(query);
+                if (results != null && results.isArray() && !results.isEmpty()) {
+                    for (JsonNode candidate : results) {
+                        String cTitle  = extractCandidateTitle(candidate);
+                        String cArtist = extractCandidateArtist(candidate);
+                        if (isPlausibleMatch(track, cArtist, cTitle)) {
+                            log.info("Found YouTube Music match for '{} - {}' via query '{}' -> '{} - {}'",
+                                    track.getArtist(), track.getTitle(), query, cArtist, cTitle);
+                            return Optional.of(candidate);
+                        }
+                    }
                 }
+            } catch (Exception e) {
+                log.debug("Search query '{}' failed for '{} - {}': {}", query, track.getArtist(), track.getTitle(), e.getMessage());
             }
-
-            log.warn("No plausible match in {} results for '{} - {}'",
-                    results.size(), track.getArtist(), track.getTitle());
-        } catch (Exception e) {
-            log.warn("Search failed for '{} - {}': {}", track.getArtist(), track.getTitle(), e.getMessage());
         }
+
+        log.warn("No plausible match across {} search queries for '{} - {}'",
+                searchQueries.size(), track.getArtist(), track.getTitle());
         return Optional.empty();
     }
 
+    public List<String> buildSearchQueries(Track track) {
+        List<String> queries = new ArrayList<>();
+        String rawArtist = track.getArtist() != null ? track.getArtist().trim() : "";
+        String rawTitle = track.getTitle() != null ? track.getTitle().trim() : "";
+        String cleanArtist = Track.cleanArtist(rawArtist);
+        String cleanTitle = Track.cleanTitle(rawTitle);
+
+        // 1. Primary query from track
+        String primary = track.toSearchQuery();
+        if (!primary.isBlank()) queries.add(primary);
+
+        // 2. Clean primary artist + clean title
+        if (!cleanArtist.isBlank() && !cleanTitle.isBlank()) {
+            String q = (cleanArtist + " " + cleanTitle).trim();
+            if (!queries.contains(q)) queries.add(q);
+        }
+
+        // 3. If multiple artists, try each artist individually with title
+        List<String> allArtists = dedupService.extractAllArtists(rawArtist);
+        for (String a : allArtists) {
+            String q = (a + " " + cleanTitle).trim();
+            if (!queries.contains(q)) queries.add(q);
+        }
+
+        // 4. Fallback to title only if distinctive
+        if (!cleanTitle.isBlank() && DeduplicationService.isDistinctiveTitle(cleanTitle)) {
+            if (!queries.contains(cleanTitle)) queries.add(cleanTitle);
+        }
+
+        return queries;
+    }
+
     public List<DownloadResult> downloadBatch(List<Track> tracks) {
+        return downloadBatch(tracks, null, null);
+    }
+
+    public List<DownloadResult> downloadBatch(List<Track> tracks, String source, String reason) {
         if (!downloadLock.tryLock()) {
             log.warn("Another download batch is already active. Skipping request.");
             broadcastStatus(new Track("System", "Batch", null, null), "error", "Another download batch is already active");
@@ -163,6 +204,9 @@ public class DownloadService {
 
             if (songsToDownload.isEmpty()) {
                 log.info("Nothing to download — all tracks already exist, weren't found, or had no valid match");
+                if (source != null) {
+                    recordBatchHistory(results, tracks, source, reason);
+                }
                 broadcastBatchComplete(totalTracks, 0, notFound, skipped);
                 return results;
             }
@@ -190,6 +234,9 @@ public class DownloadService {
                             .errorMessage("Failed to queue download: " + e.getMessage())
                             .build());
                 }
+                if (source != null) {
+                    recordBatchHistory(results, tracks, source, reason);
+                }
                 long succeeded = results.stream().filter(DownloadResult::isDone).count();
                 long failed = results.stream().filter(DownloadResult::isError).count();
                 broadcastBatchComplete(totalTracks, succeeded, failed, skipped);
@@ -212,6 +259,10 @@ public class DownloadService {
             // Refresh index after download batch finishes
             dedupService.refreshIndex();
 
+            if (source != null) {
+                recordBatchHistory(results, tracks, source, reason);
+            }
+
             long succeeded = results.stream().filter(DownloadResult::isDone).count();
             long failed = results.stream().filter(DownloadResult::isError).count();
             broadcastBatchComplete(totalTracks, succeeded, failed, skipped);
@@ -219,6 +270,21 @@ public class DownloadService {
             return results;
         } finally {
             downloadLock.unlock();
+        }
+    }
+
+    private void recordBatchHistory(List<DownloadResult> results, List<Track> tracks, String source, String reason) {
+        for (int i = 0; i < results.size(); i++) {
+            DownloadResult r = results.get(i);
+            Track t = r.getTrack() != null ? r.getTrack() : (i < tracks.size() ? tracks.get(i) : null);
+            historyService.record(HistoryEntry.builder()
+                    .artist(t != null && t.getArtist() != null ? t.getArtist() : "")
+                    .title(t != null && t.getTitle() != null ? t.getTitle() : "")
+                    .filename(r.getFilename())
+                    .source(source)
+                    .reason(reason != null ? reason : "batch download")
+                    .status(r.isDone() ? "SUCCESS" : r.isError() ? "FAILED" : "SKIPPED")
+                    .build());
         }
     }
 
@@ -266,32 +332,42 @@ public class DownloadService {
         String reqTitle = cleanTitle(requested.getTitle());
         String gotTitle = cleanTitle(matchedTitle);
 
+        boolean titleMatches = gotTitle.equals(reqTitle);
+        if (!titleMatches) return false;
+
         String reqArtist = cleanForComparison(requested.getArtist());
         String gotArtist = matchedArtist == null ? "" : cleanForComparison(matchedArtist);
 
-        boolean titleMatches = gotTitle.equals(reqTitle);
-        boolean artistOverlaps = false;
-        if (gotArtist.isBlank() || gotArtist.contains(reqArtist)) {
-            artistOverlaps = true;
-        } else if (requested.getArtist() != null && (requested.getArtist().contains(";") || requested.getArtist().contains("/"))) {
-            for (String part : requested.getArtist().split("[;/]")) {
-                String cleanPart = cleanForComparison(part);
-                if (!cleanPart.isBlank() && gotArtist.contains(cleanPart)) {
-                    artistOverlaps = true;
-                    break;
+        if (gotArtist.isBlank() || reqArtist.isBlank()) {
+            return true;
+        }
+
+        if (gotArtist.contains(reqArtist)) {
+            return true;
+        }
+
+        List<String> reqArtists = dedupService.extractAllArtists(requested.getArtist());
+        List<String> gotArtists = dedupService.extractAllArtists(matchedArtist);
+        for (String rA : reqArtists) {
+            for (String gA : gotArtists) {
+                if (rA.equals(gA)) {
+                    return true;
                 }
             }
         }
 
-        return titleMatches && artistOverlaps;
+        return false;
     }
 
     String cleanTitle(String input) {
         if (input == null) return "";
         String s = input.toLowerCase();
-        s = s.replaceAll("\\(\\s*f(?:eat|t)\\.?[^)]*\\)", "");
-        s = s.replaceAll("\\[\\s*f(?:eat|t)\\.?[^\\]]*\\]", "");
-        s = s.replaceAll("\\(\\s*(?:official\\s+(?:video|audio|music\\s+video)|music\\s+video|audio|lyric(?:s|\\s+video)?|visuali[zs]er|hd|hq)\\s*\\)", "");
+        s = s.replaceAll("\\(\\s*f(?:eat|t|eaturing)\\.?[^)]*\\)", "");
+        s = s.replaceAll("\\[\\s*f(?:eat|t|eaturing)\\.?[^\\]]*\\]", "");
+        s = s.replaceAll("\\(\\s*(?:with|feat|featuring)\\s+[^)]*\\)", "");
+        s = s.replaceAll("\\[\\s*(?:with|feat|featuring)\\s+[^\\]]*\\]", "");
+        s = s.replaceAll("\\(\\s*(?:official\\s+(?:video|audio|music\\s+video)|music\\s+video|audio|lyric(?:s|\\s+video)?|visuali[zs]er|hd|hq|explicit|clean|remastered|deluxe)\\s*\\)", "");
+        s = s.replaceAll("\\[\\s*(?:official\\s+(?:video|audio|music\\s+video)|music\\s+video|audio|lyric(?:s|\\s+video)?|visuali[zs]er|hd|hq|explicit|clean|remastered|deluxe)\\s*\\]", "");
         s = s.replaceAll("\\s+f(?:eat|t)\\..*", "");
         return s.trim();
     }
@@ -338,6 +414,8 @@ public class DownloadService {
         long startTime = System.currentTimeMillis();
 
         Map<String, Track> trackLookup = new HashMap<>();
+        Set<String> batchIdentifiers = new HashSet<>();
+
         for (int i = 0; i < tracks.size(); i++) {
             Track t = tracks.get(i);
             trackLookup.put(t.dedupeKey(), t);
@@ -345,9 +423,32 @@ public class DownloadService {
                 JsonNode sn = songNodes.get(i);
                 String mTitle  = extractCandidateTitle(sn);
                 String mArtist = extractCandidateArtist(sn);
-                trackLookup.put(new Track(mArtist, mTitle, null, null).dedupeKey(), t);
-                if (sn.has("id")) trackLookup.put(sn.get("id").asText(), t);
-                if (sn.has("videoId")) trackLookup.put(sn.get("videoId").asText(), t);
+                Track matchedT = new Track(mArtist, mTitle, null, null);
+                trackLookup.put(matchedT.dedupeKey(), t);
+
+                if (sn.hasNonNull("id")) {
+                    String id = sn.get("id").asText();
+                    trackLookup.put(id, t);
+                    batchIdentifiers.add(id);
+                }
+                if (sn.hasNonNull("videoId")) {
+                    String vid = sn.get("videoId").asText();
+                    trackLookup.put(vid, t);
+                    batchIdentifiers.add(vid);
+                }
+                if (sn.hasNonNull("song_id")) {
+                    String sid = sn.get("song_id").asText();
+                    trackLookup.put(sid, t);
+                    batchIdentifiers.add(sid);
+                }
+                if (sn.hasNonNull("url")) {
+                    String u = sn.get("url").asText();
+                    trackLookup.put(u, t);
+                    batchIdentifiers.add(u);
+                }
+                if (!mTitle.isBlank()) {
+                    batchIdentifiers.add(cleanTitle(mTitle));
+                }
             }
         }
 
@@ -371,11 +472,15 @@ public class DownloadService {
             List<DownloadResult> newResults = new ArrayList<>();
 
             for (JsonNode job : queue) {
+                String filename = job.path("filename").asText(null);
+                if (!jobBelongsToBatch(job, filename, trackLookup, batchIdentifiers)) {
+                    continue;
+                }
+
                 String status = job.path("status").asText("unknown");
 
                 if ("done".equalsIgnoreCase(status) || "completed".equalsIgnoreCase(status)) {
                     completedInThisPoll++;
-                    String filename = job.path("filename").asText(null);
                     Track matchedTrack = resolveTrackForJob(job, filename, trackLookup);
                     newResults.add(DownloadResult.builder()
                             .filename(filename)
@@ -385,7 +490,6 @@ public class DownloadService {
                 } else if ("error".equalsIgnoreCase(status)) {
                     completedInThisPoll++;
                     String error = job.has("error") ? job.get("error").asText() : "Unknown error";
-                    String filename = job.path("filename").asText(null);
                     Track matchedTrack = resolveTrackForJob(job, filename, trackLookup);
                     newResults.add(DownloadResult.builder()
                             .status("error")
@@ -434,9 +538,34 @@ public class DownloadService {
         return results;
     }
 
+    private boolean jobBelongsToBatch(JsonNode job, String filename, Map<String, Track> lookup, Set<String> identifiers) {
+        if (identifiers == null || identifiers.isEmpty()) return true;
+        if (job.hasNonNull("id") && identifiers.contains(job.get("id").asText())) return true;
+        if (job.hasNonNull("song_id") && identifiers.contains(job.get("song_id").asText())) return true;
+        if (job.hasNonNull("videoId") && identifiers.contains(job.get("videoId").asText())) return true;
+        if (job.hasNonNull("url") && identifiers.contains(job.get("url").asText())) return true;
+
+        if (job.hasNonNull("name") && identifiers.contains(cleanTitle(job.get("name").asText()))) return true;
+        if (job.hasNonNull("title") && identifiers.contains(cleanTitle(job.get("title").asText()))) return true;
+
+        JsonNode song = job.path("song");
+        if (song.isObject()) {
+            if (song.hasNonNull("id") && identifiers.contains(song.get("id").asText())) return true;
+            if (song.hasNonNull("song_id") && identifiers.contains(song.get("song_id").asText())) return true;
+            if (song.hasNonNull("name") && identifiers.contains(cleanTitle(song.get("name").asText()))) return true;
+            if (song.hasNonNull("title") && identifiers.contains(cleanTitle(song.get("title").asText()))) return true;
+        }
+
+        if (filename != null && !filename.isBlank()) {
+            String key = DeduplicationService.normalizeFilename(filename);
+            if (lookup.containsKey(key)) return true;
+        }
+        return false;
+    }
+
     private Track resolveTrackForJob(JsonNode job, String filename, Map<String, Track> lookup) {
         if (filename != null && !filename.isBlank()) {
-            String key = dedupService.normalizeFilename(filename);
+            String key = DeduplicationService.normalizeFilename(filename);
             if (lookup.containsKey(key)) return lookup.get(key);
         }
         if (job.has("id") && lookup.containsKey(job.get("id").asText())) {
@@ -444,6 +573,11 @@ public class DownloadService {
         }
         if (job.has("song_id") && lookup.containsKey(job.get("song_id").asText())) {
             return lookup.get(job.get("song_id").asText());
+        }
+        JsonNode song = job.path("song");
+        if (song.isObject()) {
+            if (song.has("id") && lookup.containsKey(song.get("id").asText())) return lookup.get(song.get("id").asText());
+            if (song.has("song_id") && lookup.containsKey(song.get("song_id").asText())) return lookup.get(song.get("song_id").asText());
         }
         return null;
     }
@@ -489,30 +623,95 @@ public class DownloadService {
                 return DownloadResult.builder().status("done").filename(cleanUrl).build();
             }
 
+            List<JsonNode> songList = new ArrayList<>();
             try {
                 JsonNode resolved = downtifyClient.resolveUrl(cleanUrl);
-                if (resolved != null && resolved.isArray() && !resolved.isEmpty()) {
-                    List<JsonNode> songList = new ArrayList<>();
-                    resolved.forEach(songList::add);
-                    log.info("Resolved link to {} songs. Submitting batch download.", songList.size());
-                    broadcast(Map.of(
-                            "type", "log",
-                            "message", "system: resolved link to " + songList.size() + " songs. Queuing batch..."
-                    ));
-                    downtifyClient.downloadBatch(songList, cleanUrl, false);
-                    historyService.record(HistoryEntry.builder()
-                            .artist("").title("")
-                            .filename(cleanUrl)
-                            .source("URL_IMPORT")
-                            .reason("pasted link (" + songList.size() + " tracks resolved)")
-                            .status("SUCCESS")
-                            .build());
-                    return DownloadResult.builder().status("queued").filename(cleanUrl).build();
+                if (resolved != null) {
+                    if (resolved.isArray() && !resolved.isEmpty()) {
+                        resolved.forEach(songList::add);
+                    } else if (resolved.isObject() && (resolved.hasNonNull("song_id") || resolved.hasNonNull("id") || resolved.hasNonNull("name") || resolved.hasNonNull("url"))) {
+                        songList.add(resolved);
+                    }
                 }
             } catch (Exception e) {
                 log.debug("URL resolution via /api/song/url returned: {}, falling back to single download", e.getMessage());
             }
 
+            if (!songList.isEmpty()) {
+                log.info("Resolved link to {} songs. Submitting batch download.", songList.size());
+                broadcast(Map.of(
+                        "type", "log",
+                        "message", "system: resolved link to " + songList.size() + " songs. Queuing batch..."
+                ));
+
+                List<Track> resolvedTracks = new ArrayList<>();
+                List<JsonNode> unskippedSongs = new ArrayList<>();
+                List<Track> unskippedTracks = new ArrayList<>();
+                int skipped = 0;
+
+                dedupService.refreshIndex();
+                broadcastBatchStart(songList.size());
+
+                for (JsonNode sn : songList) {
+                    String title = extractCandidateTitle(sn);
+                    String artist = extractCandidateArtist(sn);
+                    Track t = new Track(artist, title, null, null);
+                    resolvedTracks.add(t);
+
+                    if (dedupService.alreadyDownloaded(artist, title)) {
+                        skipped++;
+                        broadcastStatus(t, "skipped", "already downloaded");
+                        historyService.record(HistoryEntry.builder()
+                                .artist(artist)
+                                .title(title)
+                                .filename(cleanUrl)
+                                .source("URL_IMPORT")
+                                .reason("already in library")
+                                .status("SKIPPED")
+                                .build());
+                    } else {
+                        unskippedSongs.add(sn);
+                        unskippedTracks.add(t);
+                    }
+                }
+
+                if (unskippedSongs.isEmpty()) {
+                    log.info("All tracks from URL already exist in library");
+                    broadcastBatchComplete(songList.size(), 0, 0, skipped);
+                    return DownloadResult.builder().status("done").filename(cleanUrl).build();
+                }
+
+                try {
+                    downtifyClient.clearQueue();
+                } catch (Exception e) {
+                    log.warn("Could not clear queue before batch: {}", e.getMessage());
+                }
+
+                downtifyClient.downloadBatch(unskippedSongs, cleanUrl, false);
+                List<DownloadResult> polledResults = pollQueueUntilComplete(
+                        unskippedSongs.size(), unskippedTracks, unskippedSongs, songList.size(), skipped);
+
+                dedupService.refreshIndex();
+                for (DownloadResult r : polledResults) {
+                    Track t = r.getTrack();
+                    historyService.record(HistoryEntry.builder()
+                            .artist(t != null && t.getArtist() != null ? t.getArtist() : "")
+                            .title(t != null && t.getTitle() != null ? t.getTitle() : "")
+                            .filename(r.getFilename() != null ? r.getFilename() : cleanUrl)
+                            .source("URL_IMPORT")
+                            .reason("pasted link")
+                            .status(r.isDone() ? "SUCCESS" : "FAILED")
+                            .build());
+                }
+
+                long succeeded = polledResults.stream().filter(DownloadResult::isDone).count();
+                long failed = polledResults.stream().filter(DownloadResult::isError).count();
+                broadcastBatchComplete(songList.size(), succeeded, failed, skipped);
+
+                return DownloadResult.builder().status(failed == 0 ? "done" : "error").filename(cleanUrl).build();
+            }
+
+            // Fallback to downloadSingle
             String filename = downtifyClient.downloadSingle(cleanUrl);
             broadcast(Map.of(
                     "type", "log",

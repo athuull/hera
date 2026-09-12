@@ -31,6 +31,8 @@ class DownloadServiceTest {
     @BeforeEach
     void setUp() {
         downloadService = Mockito.mock(DownloadService.class, Mockito.CALLS_REAL_METHODS);
+        DeduplicationService dedup = new DeduplicationService(Mockito.mock(com.athuull.hera.client.DowntifyClient.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(downloadService, "dedupService", dedup);
     }
 
     // ─── cleanForComparison ───────────────────────────────────────────────────
@@ -157,8 +159,57 @@ class DownloadServiceTest {
                 "Should still reject 'Lanez' even when multiple artists are requested");
     }
 
+    @Test
+    @DisplayName("isPlausibleMatch matches 'family ties' by Baby Keem & Kendrick Lamar across artist representations")
+    void testPlausibleMatchFamilyTies() {
+        Track requestedSolo = new Track("Baby Keem", "family ties", null, null);
+        Track requestedCollab = new Track("Baby Keem & Kendrick Lamar", "family ties", null, null);
+        Track requestedComma = new Track("Baby Keem, Kendrick Lamar", "family ties", null, null);
+
+        // Matched artist from Downtify search: "Baby Keem & Kendrick Lamar"
+        assertTrue(downloadService.isPlausibleMatch(requestedSolo, "Baby Keem & Kendrick Lamar", "family ties"));
+        assertTrue(downloadService.isPlausibleMatch(requestedCollab, "Baby Keem & Kendrick Lamar", "family ties"));
+        assertTrue(downloadService.isPlausibleMatch(requestedComma, "Baby Keem & Kendrick Lamar", "family ties"));
+
+        // Matched with explicit / video tags
+        assertTrue(downloadService.isPlausibleMatch(requestedSolo, "Baby Keem & Kendrick Lamar", "family ties (Official Video)"));
+        assertTrue(downloadService.isPlausibleMatch(requestedSolo, "Baby Keem & Kendrick Lamar", "family ties (Explicit)"));
+    }
 
     // ─── searchForTrack ───────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("searchForTrack falls back to title search when artist query returns no matches and finds family ties")
+    void testSearchForTrackFallbackFamilyTies() throws Exception {
+        String familyTiesResultsJson = "[" +
+            "{\"song_id\":\"YqAt8-QiBcI\",\"name\":\"family ties\",\"artists\":[\"Baby Keem\",\"Kendrick Lamar\"],\"album_name\":\"The Melodic Blue\"}," +
+            "{\"song_id\":\"9f7tyV2mLdY\",\"name\":\"Family Ties\",\"artists\":[\"Rick Ross\"]}" +
+            "]";
+        JsonNode familyTiesResults = mapper.readTree(familyTiesResultsJson);
+
+        com.athuull.hera.client.DowntifyClient fakeClient = Mockito.mock(com.athuull.hera.client.DowntifyClient.class);
+        when(fakeClient.searchSongs("Baby Keem family ties")).thenReturn(mapper.readTree("[]"));
+        when(fakeClient.searchSongs("family ties")).thenReturn(familyTiesResults);
+
+        DeduplicationService dedup = new DeduplicationService(fakeClient);
+
+        DownloadService svc = new DownloadService(
+                fakeClient,
+                Mockito.mock(com.athuull.hera.config.DowntifyConfig.class),
+                Mockito.mock(SettingsService.class),
+                dedup,
+                Mockito.mock(FormatCleanupService.class),
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class),
+                Mockito.mock(HistoryService.class)
+        );
+
+        Track requested = new Track("Baby Keem", "family ties", null, null);
+        Optional<JsonNode> result = svc.searchForTrack(requested);
+
+        assertTrue(result.isPresent(), "Expected fallback query to find family ties");
+        assertEquals("YqAt8-QiBcI", result.get().path("song_id").asText());
+        assertEquals("family ties", result.get().path("name").asText());
+    }
 
     @Test
     @DisplayName("searchForTrack skips wrong songs and skit, returns the real 'Say It' (real log scenario)")
@@ -470,7 +521,7 @@ class DownloadServiceTest {
 
     @Test
     @DisplayName("downloadUrlOrAlbum routes resolved multi-track URL to downloadBatch")
-    void testDownloadUrlOrAlbumWithResolvedBatch() {
+    void testDownloadUrlOrAlbumWithResolvedBatch() throws Exception {
         com.athuull.hera.client.DowntifyClient fakeClient =
                 Mockito.mock(com.athuull.hera.client.DowntifyClient.class);
         SettingsService fakeSettingsService = Mockito.mock(SettingsService.class);
@@ -482,9 +533,16 @@ class DownloadServiceTest {
         songsArray.addObject().put("title", "Song 2");
         when(fakeClient.resolveUrl(anyString())).thenReturn(songsArray);
 
+        com.athuull.hera.config.DowntifyConfig fakeConfig =
+                Mockito.mock(com.athuull.hera.config.DowntifyConfig.class);
+        when(fakeConfig.getPollTimeoutMs()).thenReturn(1000L);
+        when(fakeConfig.getPollIntervalMs()).thenReturn(10L);
+
+        when(fakeClient.getQueue()).thenReturn(mapper.readTree("[{\"status\":\"done\",\"title\":\"Song 1\"},{\"status\":\"done\",\"title\":\"Song 2\"}]"));
+
         DownloadService svc = new DownloadService(
                 fakeClient,
-                Mockito.mock(com.athuull.hera.config.DowntifyConfig.class),
+                fakeConfig,
                 fakeSettingsService,
                 Mockito.mock(DeduplicationService.class),
                 Mockito.mock(FormatCleanupService.class),
@@ -495,7 +553,7 @@ class DownloadServiceTest {
         String spotifyAlbumUrl = "https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy";
         DownloadResult result = svc.downloadUrlOrAlbum(spotifyAlbumUrl);
 
-        assertEquals("queued", result.getStatus());
+        assertEquals("done", result.getStatus());
         verify(fakeClient).downloadBatch(anyList(), eq(spotifyAlbumUrl), eq(false));
     }
 }

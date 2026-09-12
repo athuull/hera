@@ -1,1 +1,55 @@
-[ ]
+[ {
+  "id" : "4605ced0-f649-4520-b2d8-f32131ff7511",
+  "artist" : "⣎⡇ꉺლ༽இ•̛)ྀ◞ ༎ຶ ༽ৣৢ؞ৢ؞ؖ ꉺლ",
+  "title" : "()vȯ)) ̷̨ʅ(۝ʅ(Ɵʅ():::()̵̳̗̊(Ɵʅ()vȯ)) ̷̨ʅ",
+  "filename" : "⣎⡇ꉺლ༽இ•̛)ྀ◞ ༎ຶ ༽ৣৢ؞ৢ؞ؖ ꉺლ/⣎⡇ꉺლ༽இ•̛)ྀ◞ ༎ຶ ༽ৣৢ؞ৢ؞ؖ ꉺლ - ()vȯ)) ̷̨ʅ(۝ʅ(Ɵʅ()()̵̳̗̊(Ɵʅ()vȯ)) ̷̨ʅ.mp3",
+  "source" : "URL_IMPORT",
+  "reason" : "pasted link",
+  "status" : "SUCCESS",
+  "timestamp" : "2026-09-12T13:24:53.189167Z"
+}, {
+  "id" : "64f48ac0-9f46-425c-946b-5dad386dbf5b",
+  "artist" : "⣎⡇ꉺლ༽இ•̛)ྀ◞ ༎ຶ ༽ৣৢ؞ৢ؞ؖ ꉺლ",
+  "title" : "೧ູ࿃ूੂ༽oooooo(ଳծູ ̟̞̝̜̙̘̗̖҉̵̴̨̧̢̡̼̻̺̹̳̲̱̰̯̮̭̬̫̪̩̦̥̤̣̠҈͈͇͉͍͎͓͔͕͖͙͚͜͢͢͢͢͢͢͢͢͢͢͢͢͢͢ͅ l̡̡̡ ̡͌l̡*̡̡ ̴̡ı̴̴̡ ̡̡͡| ̲̲͡ π̲̲͡͡ ɵੂ≢)_̴I",
+  "filename" : "⣎⡇ꉺლ༽இ•̛)ྀ◞ ༎ຶ ༽ৣৢ؞ৢ؞ؖ ꉺლ/⣎⡇ꉺლ༽இ•̛)ྀ◞ ༎ຶ ༽ৣৢ؞ৢ؞ؖ ꉺლ - ೧ູ࿃ूੂ༽oooooo(ଳծູ ̟̞̝̜̙̘̗̖҉̵̴̨̧̢̡̼̻̺̹̳̲̱̰̯̮̭̬̫̪̩̦̥̤̣̠҈͈͇͉͍͎͓͔͕͖͙͚͜͢͢͢͢͢͢͢͢͢͢͢͢͢͢ͅ l̡̡̡ ̡͌l̡̡̡ ̴̡ı̴̴̡ ̡̡͡ ̲̲͡ π̲̲͡͡ ɵੂ≢)_̴I.mp3",
+  "source" : "URL_IMPORT",
+  "reason" : "pasted link",
+  "status" : "SUCCESS",
+  "timestamp" : "2026-09-12T13:24:14.287064Z"
+}, {
+  "id" : "8c7ab66e-80f1-4f01-a850-596e6e793311",
+  "artist" : "Macroblank",
+  "title" : "Macroblank - 能界蘭極境",
+  "filename" : "Macroblank/Macroblank - Macroblank - 能界蘭極境.mp3",
+  "source" : "URL_IMPORT",
+  "reason" : "pasted link",
+  "status" : "SUCCESS",
+  "timestamp" : "2026-09-12T13:22:27.929488Z"
+}, {
+  "id" : "a370d012-d6ab-419a-b861-db95b8f6e4e4",
+  "artist" : "Dangdalf",
+  "title" : "Lorn - Sega Sunset",
+  "filename" : "Dangdalf/Dangdalf - Lorn - Sega Sunset.mp3",
+  "source" : "URL_IMPORT",
+  "reason" : "pasted link",
+  "status" : "SUCCESS",
+  "timestamp" : "2026-09-12T13:17:16.729046Z"
+}, {
+  "id" : "9ddf5dd1-d336-4dfa-be7e-b2aa58f6b418",
+  "artist" : "Macroblank",
+  "title" : "Macroblank - 能界蘭極境",
+  "filename" : "https://youtu.be/s-1e7IxV7Hc?si=9jmMnn-ygkCZ8orj",
+  "source" : "URL_IMPORT",
+  "reason" : "already in library",
+  "status" : "SKIPPED",
+  "timestamp" : "2026-09-12T13:15:56.893514Z"
+}, {
+  "id" : "a29ddb35-26ef-44f3-8082-c46315cab4a7",
+  "artist" : "Macroblank",
+  "title" : "Macroblank - 能界蘭極境",
+  "filename" : "https://youtu.be/s-1e7IxV7Hc?si=9jmMnn-ygkCZ8orj",
+  "source" : "URL_IMPORT",
+  "reason" : "already in library",
+  "status" : "SKIPPED",
+  "timestamp" : "2026-09-12T13:15:30.458470Z"
+} ]

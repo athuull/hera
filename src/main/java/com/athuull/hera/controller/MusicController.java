@@ -27,6 +27,7 @@ public class MusicController {
     private final SettingsService settingsService;
     private final HistoryService historyService;
     private final TaskExecutor taskExecutor;
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @Autowired
     public MusicController(OrchestratorService orchestrator, DownloadService downloadService,
@@ -42,6 +43,17 @@ public class MusicController {
         this.settingsService = settingsService;
         this.historyService = historyService;
         this.taskExecutor = taskExecutor;
+    }
+
+    // ─── Direct Search ───
+
+    @GetMapping("/search")
+    public ResponseEntity<JsonNode> searchSongs(@RequestParam String query) {
+        if (query == null || query.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        JsonNode results = downtifyClient.searchSongs(query.trim());
+        return ResponseEntity.ok(results != null ? results : mapper.createArrayNode());
     }
 
     // ─── Personalized Recommendations ───
@@ -116,7 +128,7 @@ public class MusicController {
         if (request.getTracks() == null || request.getTracks().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "No tracks provided"));
         }
-        taskExecutor.execute(() -> downloadService.downloadBatch(request.getTracks()));
+        taskExecutor.execute(() -> downloadService.downloadBatch(request.getTracks(), "MANUAL_SEARCH", "manual search"));
         return ResponseEntity.ok(Map.of("message", "Download queued for " + request.getTracks().size() + " tracks", "count", request.getTracks().size()));
     }
 

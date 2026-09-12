@@ -84,4 +84,63 @@ class DeduplicationServiceTest {
         // Unrelated track should not match
         assertFalse(dedupService.alreadyDownloaded("Tory Lanez", "Say It"));
     }
+
+    @Test
+    @DisplayName("alreadyDownloaded recognizes track-numbered album files and prevents duplicate downloads")
+    void testTrackNumberedFilesDeduplication() {
+        when(downtifyClient.listFiles()).thenReturn(List.of(
+                "Burial/Untrue/04 - Ghost Hardware.flac",
+                "Burial/Untrue/07 - In McDonalds.flac",
+                "Kendrick Lamar/DAMN./01 - Blood.flac",
+                "Kendrick Lamar/good kid, m.A.A.d city/04 The art of peer pressure.m4a",
+                "C418/1-09 For the Sake of Making Games.flac",
+                "Daft Punk/Random Access Memories/05 Instant Crush (feat. Julian Casablancas).flac",
+                "Four Tet/Rounds/01. Hands.flac",
+                "Aphex Twin/Selected Ambient Works 85-92/1. Xtal.flac",
+                "The Weeknd/Trilogy/01. The Weeknd - High For This.flac"
+        ));
+        dedupService.refreshIndex();
+
+        // Burial solo tracks requested as solo or under collaborative artist name
+        assertTrue(dedupService.alreadyDownloaded("Burial", "Ghost Hardware"));
+        assertTrue(dedupService.alreadyDownloaded("Burial & Four Tet", "Ghost Hardware"));
+        assertTrue(dedupService.alreadyDownloaded("Burial", "In McDonalds"));
+        assertTrue(dedupService.alreadyDownloaded("Burial & Four Tet", "In McDonalds"));
+
+        // Kendrick Lamar tracks
+        assertTrue(dedupService.alreadyDownloaded("Kendrick Lamar", "Blood"));
+        assertTrue(dedupService.alreadyDownloaded("Kendrick Lamar", "The Art of Peer Pressure"));
+
+        // C418 track
+        assertTrue(dedupService.alreadyDownloaded("C418", "For the Sake of Making Games"));
+
+        // Daft Punk track
+        assertTrue(dedupService.alreadyDownloaded("Daft Punk", "Instant Crush"));
+        assertTrue(dedupService.alreadyDownloaded("Daft Punk, Julian Casablancas", "Instant Crush (feat. Julian Casablancas)"));
+
+        // Four Tet & Aphex Twin
+        assertTrue(dedupService.alreadyDownloaded("Four Tet", "Hands"));
+        assertTrue(dedupService.alreadyDownloaded("Aphex Twin", "Xtal"));
+
+        // The Weeknd
+        assertTrue(dedupService.alreadyDownloaded("The Weeknd", "High For This"));
+
+        // New track not in library
+        assertFalse(dedupService.alreadyDownloaded("Burial", "Street Halo"));
+    }
+
+    @Test
+    @DisplayName("alreadyDownloaded correctly distinguishes different non-Latin / multilingual tracks from the same artist")
+    void testNonLatinUnicodeTracksDeduplication() {
+        when(downtifyClient.listFiles()).thenReturn(List.of(
+                "Macroblank/Macroblank - Macroblank - лучшие дни.mp3"
+        ));
+        dedupService.refreshIndex();
+
+        // Already in library: лучшие дни
+        assertTrue(dedupService.alreadyDownloaded("Macroblank", "лучшие дни"));
+
+        // Different song in Japanese/Chinese not yet in library: 能界蘭極境
+        assertFalse(dedupService.alreadyDownloaded("Macroblank", "能界蘭極境"));
+    }
 }

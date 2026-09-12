@@ -35,8 +35,8 @@ public class Track {
         // Split on feat/ft/featuring/with/x/vs (case-insensitive)
         cleaned = cleaned.split("(?i)\\s+(?:feat\\.?|ft\\.?|featuring|with|x|vs\\.?)\\s+")[0];
         cleaned = cleaned.split("(?i)\\s+f(?:eat|t)\\..*")[0];
-        // Remove non-alphanumeric characters except whitespace
-        cleaned = cleaned.replaceAll("[^a-zA-Z0-9\\s]", "");
+        // Remove non-alphanumeric characters except whitespace (Unicode aware: supports all languages & scripts)
+        cleaned = cleaned.replaceAll("[^\\p{L}\\p{N}\\p{M}\\s]", "");
         // Collapse any double spaces
         cleaned = cleaned.replaceAll("\\s+", " ");
         return cleaned.trim();
@@ -49,8 +49,8 @@ public class Track {
         cleaned = cleaned.replaceAll("\\s*\\[.*?\\]\\s*", " ");
         // Remove "feat.", "ft.", "featuring" and everything after it (case-insensitive)
         cleaned = cleaned.replaceAll("(?i)\\s+(?:feat\\.?|ft\\.?|featuring)\\b.*", "");
-        // Remove non-alphanumeric characters except whitespace (do not split on comma!)
-        cleaned = cleaned.replaceAll("[^a-zA-Z0-9\\s]", "");
+        // Remove non-alphanumeric characters except whitespace (Unicode aware: supports all languages & scripts)
+        cleaned = cleaned.replaceAll("[^\\p{L}\\p{N}\\p{M}\\s]", "");
         // Collapse any double spaces
         cleaned = cleaned.replaceAll("\\s+", " ");
         return cleaned.trim();

@@ -55,9 +55,18 @@ public abstract class AbstractRecommendationStrategy implements RecommendationSt
                 String title = track.path("name").asText();
                 int listeners = track.path("listeners").asInt(0);
 
-                Track t = new Track(artist, title, null, null);
+                // Use track's explicit artist if provided by Last.fm, fallback to query artist
+                String trackArtist = track.path("artist").path("name").asText(
+                        track.path("artist").path("#text").asText(
+                                track.path("artist").asText(artist)));
+                if (trackArtist == null || trackArtist.isBlank()) {
+                    trackArtist = artist;
+                }
+
+                Track t = new Track(trackArtist, title, null, null);
                 if (seen.add(t.dedupeKey())) {
-                    if (!dedupService.alreadyDownloaded(artist, title)) {
+                    if (!dedupService.alreadyDownloaded(trackArtist, title) &&
+                        !dedupService.alreadyDownloaded(artist, title)) {
                         recs.add(new Recommendation(t, source, matchScore, listeners, false, false, null));
                     }
                 }

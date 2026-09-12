@@ -64,4 +64,15 @@ class TrackTest {
         Track t = new Track("The Beatles", "Hello, Goodbye", null, null);
         assertEquals("the beatles - hello goodbye", t.dedupeKey());
     }
+
+    @Test
+    @DisplayName("dedupeKey preserves non-Latin Unicode characters (Japanese, Chinese, Cyrillic, etc.)")
+    void testDedupeKeyPreservesUnicodeCharacters() {
+        Track tCjk = new Track("Macroblank", "能界蘭極境", null, null);
+        Track tCyrillic = new Track("Macroblank", "лучшие дни", null, null);
+
+        assertEquals("macroblank - 能界蘭極境", tCjk.dedupeKey());
+        assertEquals("macroblank - лучшие дни", tCyrillic.dedupeKey());
+        assertNotEquals(tCjk.dedupeKey(), tCyrillic.dedupeKey());
+    }
 }
