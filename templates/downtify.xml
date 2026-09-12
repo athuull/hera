@@ -9,7 +9,7 @@
   <Icon>https://raw.githubusercontent.com/athuull/hera/main/src/main/resources/static/favicon.png</Icon>
   <WebUI>http://[IP]:[PORT:8000]</WebUI>
 
-  <Overview>Downtify is an open-source Spotify and YouTube Music downloader backend powered by FastAPI, yt-dlp, and ffmpeg. It provides an automated download engine and queue management for companion clients like Hera.</Overview>
+  <Overview>Downtify is an open-source music downloader backend powered by FastAPI, yt-dlp, and ffmpeg. It provides an automated download engine and queue management for companion clients like Hera.</Overview>
 
   <Support>https://github.com/henriquesebastiao/downtify/issues</Support>
   <Project>https://github.com/henriquesebastiao/downtify</Project>

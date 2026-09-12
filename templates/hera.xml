@@ -9,13 +9,13 @@
   <Icon>https://raw.githubusercontent.com/athuull/hera/main/src/main/resources/static/favicon.png</Icon>
   <WebUI>http://[IP]:[PORT:8080]</WebUI>
 
-  <Overview>Hera is a self-hosted music recommendation and automated downloader service powered by Last.fm, YouTube Music, and Downtify. Discover new music tailored to your listening taste, download tracks, albums, or playlists, and synchronize your local music library.</Overview>
-  <Description>Hera is a self-hosted music recommendation and automated downloader service powered by Last.fm, YouTube Music, and Downtify.&#xD;
+  <Overview>Hera is a self-hosted music recommendation and automated downloader service powered by Last.fm and Downtify. Discover new music tailored to your listening taste, download tracks, albums, or playlists, and synchronize your local music library.</Overview>
+  <Description>Hera is a self-hosted music recommendation and automated downloader service powered by Last.fm and Downtify.&#xD;
 &#xD;
 Features:&#xD;
 - Automated Nightly Downloads: Automatically fetch tailored recommendations and download new tracks up to a daily limit.&#xD;
-- Direct Song &amp; Artist Search: Search songs across YouTube Music with instant details and one-click downloading.&#xD;
-- Link &amp; Stream Ingestion: Paste Spotify or YouTube Music links (tracks, albums, playlists) for automated ingestion.&#xD;
+- Direct Song &amp; Artist Search: Search songs with instant track details and one-click downloading.&#xD;
+- Link &amp; Stream Ingestion: Paste Spotify or web links (tracks, albums, playlists) for automated ingestion.&#xD;
 - Intelligent Deduplication: Multi-tier indexing across local files to avoid duplicate downloads.&#xD;
 - Real-time Dashboard: Minimalist web interface with live progress bars and WebSocket feed.&#xD;
 &#xD;

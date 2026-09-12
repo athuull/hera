@@ -1,12 +1,12 @@
 # Hera
 
-A self-hosted music recommendation and automated downloader service powered by Last.fm, YouTube Music, and Downtify. Hera automatically discovers new music tailored to your listening taste, provides direct song and link downloading, and manages your local audio library.
+A self-hosted music recommendation and automated downloader service powered by Last.fm and Downtify. Hera automatically discovers new music tailored to your listening taste, provides direct song and link downloading, and manages your local audio library.
 
 ## Features
 
 - **Automated Cron Downloads**: Runs on a configurable schedule (e.g. nightly) to fetch personalized recommendations and download new tracks automatically up to a daily limit.
-- **Direct Song & Artist Search**: Search songs by name directly across YouTube Music with instant track details, cover art preview, and single-click downloading.
-- **Link & Stream Ingestion**: Paste Spotify or YouTube Music links (tracks, albums, playlists) for seamless automated downloading.
+- **Direct Song & Artist Search**: Search songs by name with instant track details, cover art preview, and single-click downloading.
+- **Link & Stream Ingestion**: Paste Spotify or web links (tracks, albums, playlists) for seamless automated downloading.
 - **Personalized Recommendation Modes**:
   - **Hybrid**: Blends recent scrobbles, top artists, and listening genres.
   - **Top Artists**: Discovers tracks similar to your most-played artists.
