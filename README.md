@@ -1,20 +1,22 @@
 # Hera
 
-A self-hosted music recommendation and downloader service built with Spring Boot. Hera uses Last.fm to discover music tailored to your taste and downloads tracks via Downtify.
+A self-hosted music recommendation and automated downloader service powered by Last.fm, YouTube Music, and Downtify. Hera automatically discovers new music tailored to your listening taste, provides direct song and link downloading, and manages your local audio library.
 
 ## Features
 
-- **Automated Downloads**: Runs on a configurable cron schedule (e.g. nightly) to fetch recommendations and download new tracks automatically up to a daily limit.
-- **Manual Search & Download**: Explore recommendations on-demand from the web UI, choose specific songs, and download selected tracks.
-- **Recommendation Modes**:
+- **Automated Cron Downloads**: Runs on a configurable schedule (e.g. nightly) to fetch personalized recommendations and download new tracks automatically up to a daily limit.
+- **Direct Song & Artist Search**: Search songs by name directly across YouTube Music with instant track details, cover art preview, and single-click downloading.
+- **Link & Stream Ingestion**: Paste Spotify or YouTube Music links (tracks, albums, playlists) for seamless automated downloading.
+- **Personalized Recommendation Modes**:
   - **Hybrid**: Blends recent scrobbles, top artists, and listening genres.
   - **Top Artists**: Discovers tracks similar to your most-played artists.
   - **Recent Scrobbles**: Finds music similar to tracks you recently listened to.
   - **Top Genres / Tags**: Recommends tracks from your favorite genres.
   - **Manual Exploration**: Search directly by artist name, track similarity, or genre tags.
-- **Library Deduplication**: Checks existing local files and tags before downloading to prevent duplicates.
-- **Format Management**: Configurable output formats (MP3 up to 320kbps, M4A, Opus), auto-cleanup of `.webm` files via ffmpeg, and optional lyric (.lrc) downloading.
-- **Minimalist Web UI**: Terminal-styled dashboard with real-time download progress via WebSockets.
+- **Intelligent Library Deduplication**: Multi-tier deduplication indexing (exact title normalization, unicode support, distinctive title extraction, and artist matching) across local files and ID3 tags before downloading to avoid duplicates.
+- **Download History & Telemetry**: Full audit trail recording downloaded, skipped, and failed tracks with timestamps and reason logging.
+- **Format & Metadata Management**: Configurable output formats (MP3 up to 320kbps CBR, FLAC, M4A, Opus), custom cover art resolution, synced lyrics (`.lrc`), and automatic `.webm` to `.mp3` format cleanup via ffmpeg.
+- **Real-time Progress Dashboard**: Terminal-styled minimalist web interface with live dual-progress HUDs (track & batch level) and WebSocket activity feed.
 
 ## Quick Start
 
