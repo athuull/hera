@@ -103,6 +103,7 @@ public class DownloadService {
         String rawTitle = track.getTitle() != null ? track.getTitle().trim() : "";
         String cleanArtist = Track.cleanArtist(rawArtist);
         String cleanTitle = Track.cleanTitle(rawTitle);
+        String baseTitle = stripParenthesesAndBrackets(rawTitle);
 
         // 1. Primary query from track
         String primary = track.toSearchQuery();
@@ -114,16 +115,29 @@ public class DownloadService {
             if (!queries.contains(q)) queries.add(q);
         }
 
-        // 3. If multiple artists, try each artist individually with title
+        // 3. Clean primary artist + stripped base title (e.g. Mike Shinoda Heavy Is the Crown)
+        if (!cleanArtist.isBlank() && !baseTitle.isBlank()) {
+            String q = (cleanArtist + " " + baseTitle).trim();
+            if (!queries.contains(q)) queries.add(q);
+        }
+
+        // 4. If multiple artists, try each artist individually with clean / base title
         List<String> allArtists = dedupService.extractAllArtists(rawArtist);
         for (String a : allArtists) {
             String q = (a + " " + cleanTitle).trim();
             if (!queries.contains(q)) queries.add(q);
+            if (!baseTitle.isBlank()) {
+                String qb = (a + " " + baseTitle).trim();
+                if (!queries.contains(qb)) queries.add(qb);
+            }
         }
 
-        // 4. Fallback to title only if distinctive
+        // 5. Fallback to title only if distinctive
         if (!cleanTitle.isBlank() && DeduplicationService.isDistinctiveTitle(cleanTitle)) {
             if (!queries.contains(cleanTitle)) queries.add(cleanTitle);
+        }
+        if (!baseTitle.isBlank() && DeduplicationService.isDistinctiveTitle(baseTitle)) {
+            if (!queries.contains(baseTitle)) queries.add(baseTitle);
         }
 
         return queries;
@@ -359,6 +373,17 @@ public class DownloadService {
         return false;
     }
 
+    String stripParenthesesAndBrackets(String input) {
+        if (input == null) return "";
+        String s = input.toLowerCase();
+        s = s.replaceAll("\\([^)]*\\)", "");
+        s = s.replaceAll("\\[[^\\]]*\\]", "");
+        s = s.replaceAll("\\s+f(?:eat|t)\\..*", "");
+        s = s.replaceAll("[^\\p{L}\\p{N}\\p{M}\\s]", "");
+        s = s.replaceAll("\\s+", " ");
+        return s.trim();
+    }
+
     String cleanTitle(String input) {
         if (input == null) return "";
         String s = input.toLowerCase();
@@ -366,8 +391,8 @@ public class DownloadService {
         s = s.replaceAll("\\[\\s*f(?:eat|t|eaturing)\\.?[^\\]]*\\]", "");
         s = s.replaceAll("\\(\\s*(?:with|feat|featuring)\\s+[^)]*\\)", "");
         s = s.replaceAll("\\[\\s*(?:with|feat|featuring)\\s+[^\\]]*\\]", "");
-        s = s.replaceAll("\\(\\s*(?:official\\s+(?:video|audio|music\\s+video)|music\\s+video|audio|lyric(?:s|\\s+video)?|visuali[zs]er|hd|hq|explicit|clean|remastered|deluxe)\\s*\\)", "");
-        s = s.replaceAll("\\[\\s*(?:official\\s+(?:video|audio|music\\s+video)|music\\s+video|audio|lyric(?:s|\\s+video)?|visuali[zs]er|hd|hq|explicit|clean|remastered|deluxe)\\s*\\]", "");
+        s = s.replaceAll("\\(\\s*(?:official\\s+(?:video|audio|music\\s+video)|music\\s+video|audio|lyric(?:s|\\s+video)?|visuali[zs]er|hd|hq|explicit|clean|remastered|deluxe|original\\s+score|from\\s+the\\s+series[^)]*|from\\s+the\\s+motion\\s+picture[^)]*|from\\s+[^)]*|soundtrack\\s+version|original\\s+motion\\s+picture\\s+soundtrack|ost)\\s*\\)", "");
+        s = s.replaceAll("\\[\\s*(?:official\\s+(?:video|audio|music\\s+video)|music\\s+video|audio|lyric(?:s|\\s+video)?|visuali[zs]er|hd|hq|explicit|clean|remastered|deluxe|original\\s+score|from\\s+the\\s+series[^\\]]*|from\\s+the\\s+motion\\s+picture[^\\]]*|from\\s+[^\\]]*|soundtrack\\s+version|original\\s+motion\\s+picture\\s+soundtrack|ost)\\s*\\]", "");
         s = s.replaceAll("\\s+f(?:eat|t)\\..*", "");
         return s.trim();
     }

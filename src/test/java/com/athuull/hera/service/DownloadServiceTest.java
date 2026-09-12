@@ -108,6 +108,16 @@ class DownloadServiceTest {
         assertTrue(downloadService.isPlausibleMatch(requested, "", "Song"));
     }
 
+    @Test
+    @DisplayName("isPlausibleMatch accepts soundtrack/annotated titles like Heavy Is the Crown")
+    void testPlausibleMatchSoundtrackAnnotation() {
+        Track requested = new Track("Mike Shinoda",
+                "Heavy Is the Crown (Original Score) (From the Series Arcane League of Legends)", null, null);
+        assertTrue(downloadService.isPlausibleMatch(requested, "Mike Shinoda", "Heavy Is the Crown"));
+        assertTrue(downloadService.isPlausibleMatch(requested, "Mike Shinoda & Emily Armstrong", "Heavy Is the Crown"));
+        assertTrue(downloadService.isPlausibleMatch(requested, "Riot Games, Mike Shinoda", "Heavy Is the Crown"));
+    }
+
 
     @Test
     @DisplayName("isPlausibleMatch REJECTS 'Say It (Skit)' when requesting 'Say It'")

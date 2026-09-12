@@ -576,7 +576,7 @@
         if (pctElem) pctElem.innerText = `${clamped}%`;
         if (pillElem) {
             pillElem.className = `status-pill ${statusType}`;
-            pillElem.innerText = statusType === 'active' ? '[● running]' : (statusType === 'connected' ? '[✓ complete]' : '[idle]');
+            pillElem.innerText = statusType === 'active' ? '[● running]' : (statusType === 'connected' ? '[complete]' : '[idle]');
         }
         if (subElem && subtext) subElem.innerText = subtext;
         if (cardElem) {
@@ -599,7 +599,7 @@
         batchState.currentStatus = 'downloading';
         setDownloadStatus(true, `[● batch of ${batchState.total}]`);
         updateTrackUI('preparing download...', 0, '[queued]', 'locating stream on youtube music...', 'active');
-        updateBatchUI(0, batchState.total, 0, `in-progress: 0 | remaining: ${batchState.total}`, 'active');
+        updateBatchUI(0, batchState.total, 0, `remaining: ${batchState.total}`, 'active');
         logProgress(`started batch download of ${batchState.total} tracks...`);
     }
 
@@ -636,7 +636,7 @@
     function setDownloadStatus(active, text) {
         const elem = document.getElementById('download-status');
         if (!elem) return;
-        elem.className = active ? 'status-pill active' : (text && text.includes('✓') ? 'status-pill connected' : 'status-pill idle');
+        elem.className = active ? 'status-pill active' : (text && (text.includes('complete') || text.includes('done') || text.includes('connected') || text.includes('success')) ? 'status-pill connected' : 'status-pill idle');
         elem.innerText = text || (active ? '[● downloading...]' : '[idle]');
     }
 
@@ -667,8 +667,8 @@
             const totalDone = data.total || (downloadedCount + failedCount + skippedCount) || batchState.total || 0;
             batchState.total = totalDone;
             batchState.completed = totalDone;
-            setDownloadStatus(false, '[✓ complete]');
-            updateTrackUI(batchState.currentTrack || 'all tracks processed', 100, '[✓ done]', 'all jobs completed', 'connected');
+            setDownloadStatus(false, '[complete]');
+            updateTrackUI(batchState.currentTrack || 'all tracks processed', 100, '[done]', 'all jobs completed', 'connected');
             updateBatchUI(totalDone, totalDone, 100, `finished: ${downloadedCount} downloaded, ${failedCount} failed${skippedCount ? `, ${skippedCount} skipped` : ''}`, 'connected');
             logProgress(`batch complete: ${downloadedCount} downloaded, ${failedCount} failed${skippedCount ? `, ${skippedCount} skipped` : ''}`);
             refreshLibrary();
@@ -714,7 +714,7 @@
                 ? Math.min(99, ((batchState.completed + progress / 100) / batchState.total) * 100)
                 : progress;
             const remaining = Math.max(0, batchState.total - batchState.completed - 1);
-            updateBatchUI(batchState.completed, batchState.total, smoothBatchPct, `in-progress: 1 | remaining: ${remaining}`, 'active');
+            updateBatchUI(batchState.completed, batchState.total, smoothBatchPct, `completed: ${batchState.completed} | remaining: ${remaining}`, 'active');
         } else if (status === 'finished' || status === 'done') {
             if (!batchState.active) {
                 batchState.active = true;
@@ -723,10 +723,10 @@
             if (batchState.completed < batchState.total) {
                 batchState.completed = Math.min(batchState.total, batchState.completed + 1);
             }
-            updateTrackUI(songName, 100, '[✓ done]', 'downloaded and saved to library', 'connected');
+            updateTrackUI(songName, 100, '[done]', 'downloaded and saved to library', 'connected');
             const batchPct = batchState.total > 0 ? (batchState.completed / batchState.total) * 100 : 100;
             updateBatchUI(batchState.completed, batchState.total, batchPct, `completed: ${batchState.completed} / ${batchState.total}`, batchState.completed >= batchState.total ? 'connected' : 'active');
-            logProgress(`[✓ done] ${songName}`);
+            logProgress(`[done] ${songName}`);
             refreshLibrary();
             refreshHistory();
         } else if (status === 'skipped') {
@@ -932,7 +932,7 @@
                 body: JSON.stringify({ tracks: [track] })
             });
             if (!res.ok) throw new Error(`http ${res.status}`);
-            if (btn) { btn.innerText = '[queued ✓]'; }
+            if (btn) { btn.innerText = '[queued]'; }
         } catch (e) {
             alert(`download failed: ${e.message}`);
             if (btn) { btn.disabled = false; btn.innerText = '[download]'; }
@@ -1113,10 +1113,10 @@
                 const errData = await res.json().catch(() => ({}));
                 throw new Error(errData.error || `http ${res.status}`);
             }
-            if (btn) { btn.innerText = '[queued ✓]'; }
+            if (btn) { btn.innerText = '[queued]'; }
             if (statusEl) {
                 statusEl.style.color = 'var(--status-ok)';
-                statusEl.innerText = '✓ download queued';
+                statusEl.innerText = 'download queued';
             }
             logProgress(`system: download queued for link -> ${url}`);
             input.value = '';
@@ -1216,7 +1216,7 @@
             logProgress(`system: cleanup finished. converted ${converted.length} files`);
             if (statusEl) {
                 statusEl.style.color = 'var(--status-ok)';
-                statusEl.innerText = `✓ converted ${converted.length} files`;
+                statusEl.innerText = `converted ${converted.length} files`;
                 setTimeout(() => { statusEl.innerText = ''; }, 3500);
             }
             refreshLibrary();
@@ -1275,10 +1275,10 @@
         try {
             const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) });
             if (!res.ok) throw new Error('failed to save settings');
-            if (btn) { btn.innerText = '[saved ✓]'; }
+            if (btn) { btn.innerText = '[saved]'; }
             if (statusEl) {
                 statusEl.style.color = 'var(--status-ok)';
-                statusEl.innerText = '✓ settings saved and applied.';
+                statusEl.innerText = 'settings saved and applied.';
             }
             logProgress('system: settings updated and applied.');
             const el = document.getElementById('status-text');
