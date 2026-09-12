@@ -14,6 +14,7 @@ public class AppSettings {
     private String lastfmUsername;
     private int maxDailyDownloads;
     private String cronSchedule;
+    private String timezone;
     private RecommendationStrategy scheduledStrategy;
     private String format;
     private String bitrate;

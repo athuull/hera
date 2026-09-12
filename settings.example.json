@@ -3,6 +3,7 @@
   "lastfmUsername" : "YOUR_LASTFM_USERNAME",
   "maxDailyDownloads" : 5,
   "cronSchedule" : "0 0 2 * * *",
+  "timezone" : "UTC",
   "scheduledStrategy" : "HYBRID",
   "format" : "mp3",
   "bitrate" : "320",

@@ -45,6 +45,9 @@ public class SettingsService {
     @Value("${scheduler.cron:0 0 2 * * *}")
     private String envCron;
 
+    @Value("${scheduler.timezone:}")
+    private String envTimezone;
+
     @Value("${downtify.format:mp3}")
     private String envFormat;
 
@@ -80,6 +83,9 @@ public class SettingsService {
                 if (settings.getCoverResolution() <= 0) {
                     settings.setCoverResolution(600);
                 }
+                if (settings.getTimezone() == null || settings.getTimezone().isBlank()) {
+                    settings.setTimezone(envTimezone != null && !envTimezone.isBlank() ? envTimezone : java.time.ZoneId.systemDefault().getId());
+                }
                 log.info("Loaded settings from {}", settingsFile.getAbsolutePath());
             } catch (IOException e) {
                 log.error("Failed to read settings file, creating from env defaults: {}", e.getMessage());
@@ -97,6 +103,7 @@ public class SettingsService {
                 .lastfmUsername(envUsername)
                 .maxDailyDownloads(envMaxDownloads)
                 .cronSchedule(envCron)
+                .timezone(envTimezone != null && !envTimezone.isBlank() ? envTimezone : java.time.ZoneId.systemDefault().getId())
                 .scheduledStrategy(com.athuull.hera.model.RecommendationStrategy.HYBRID)
                 .format(envFormat)
                 .bitrate(envBitrate)

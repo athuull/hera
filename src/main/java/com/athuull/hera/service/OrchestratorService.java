@@ -19,6 +19,7 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
@@ -66,12 +67,24 @@ public class OrchestratorService implements ApplicationRunner {
             return;
         }
         try {
-            CronTrigger trigger = new CronTrigger(cronExpression);
+            ZoneId zoneId = getZoneId();
+            CronTrigger trigger = new CronTrigger(cronExpression, zoneId);
             scheduledFuture = taskScheduler.schedule(this::runScheduledPipeline, trigger);
-            log.info("Scheduled nightly pipeline with cron: {}", cronExpression);
+            log.info("Scheduled nightly pipeline with cron: {} in timezone: {}", cronExpression, zoneId);
         } catch (Exception e) {
             log.error("Invalid cron expression '{}': {}", cronExpression, e.getMessage());
         }
+    }
+
+    public ZoneId getZoneId() {
+        if (settingsService.getSettings() != null && settingsService.getSettings().getTimezone() != null && !settingsService.getSettings().getTimezone().isBlank()) {
+            try {
+                return ZoneId.of(settingsService.getSettings().getTimezone().trim());
+            } catch (Exception e) {
+                log.warn("Invalid timezone '{}', falling back to system default: {}", settingsService.getSettings().getTimezone(), e.getMessage());
+            }
+        }
+        return ZoneId.systemDefault();
     }
 
     @EventListener(ApplicationReadyEvent.class)

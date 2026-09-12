@@ -24,5 +24,6 @@ downtify:
 
 scheduler:
   cron: ${CRON_SCHEDULE:0 0 2 * * *}
+  timezone: ${TZ:}
   max-daily-downloads: 5
   lastfm-username: ${LASTFM_USERNAME:}

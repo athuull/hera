@@ -37,6 +37,7 @@ services:
         source: /DATA/AppData/hera/config
         target: /config
     environment:
+      TZ: ${TZ:-UTC}
       DOWNTIFY_API_URL: http://downtify:8000
       MUSIC_DOWNLOAD_DIR: /music/downloads
       APP_CONFIG_DIR: /config

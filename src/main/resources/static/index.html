@@ -330,6 +330,11 @@
                 <select id="set-cron-minute"></select>
             </div>
             <div class="setting-row">
+                <label>timezone:</label>
+                <input type="text" id="set-timezone" placeholder="e.g. UTC, Asia/Kolkata" style="width: 170px;">
+                <button type="button" class="btn" style="padding: 2px 7px; font-size: 11px; margin-left: 6px;" onclick="autoDetectTimezone()">[detect]</button>
+            </div>
+            <div class="setting-row">
                 <label>format &amp; bitrate:</label>
                 <select id="set-format">
                     <option value="mp3">mp3</option>
@@ -608,6 +613,18 @@
         h.innerHTML = ''; m.innerHTML = '';
         for (let i = 0; i < 24; i++) h.add(new Option(i.toString().padStart(2, '0'), i));
         [0, 15, 30, 45].forEach(v => m.add(new Option(v.toString().padStart(2, '0'), v)));
+    }
+
+    function autoDetectTimezone() {
+        try {
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (tz) {
+                const el = document.getElementById('set-timezone');
+                if (el) el.value = tz;
+            }
+        } catch (e) {
+            console.error('Could not auto-detect timezone', e);
+        }
     }
 
     function parseCron(cron) {
@@ -1244,6 +1261,12 @@
             const t = parseCron(s.cronSchedule || '0 0 2 * * *');
             document.getElementById('set-cron-hour').value = t.hour;
             document.getElementById('set-cron-minute').value = t.minute;
+            try {
+                const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+                document.getElementById('set-timezone').value = s.timezone || detectedTz;
+            } catch (_) {
+                document.getElementById('set-timezone').value = s.timezone || 'UTC';
+            }
             document.getElementById('set-format').value = s.format || 'mp3';
             document.getElementById('set-bitrate').value = s.bitrate || '320';
             document.getElementById('set-organize').checked = !!s.organizeByArtist;
@@ -1259,12 +1282,18 @@
         if (btn) { btn.disabled = true; btn.innerText = '[saving...]'; }
         if (statusEl) { statusEl.style.color = 'var(--text-muted)'; statusEl.innerText = 'saving...'; }
 
+        let tzVal = document.getElementById('set-timezone').value.trim();
+        if (!tzVal) {
+            try { tzVal = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (_) { tzVal = 'UTC'; }
+        }
+
         const s = {
             lastfmApiKey: document.getElementById('set-lastfm-key').value.trim(),
             lastfmUsername: document.getElementById('set-lastfm-user').value.trim(),
             maxDailyDownloads: parseInt(document.getElementById('set-max-downloads').value) || 5,
             scheduledStrategy: document.getElementById('set-strategy').value,
             cronSchedule: buildCron(),
+            timezone: tzVal,
             format: document.getElementById('set-format').value,
             bitrate: document.getElementById('set-bitrate').value,
             organizeByArtist: document.getElementById('set-organize').checked,
