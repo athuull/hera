@@ -13,7 +13,7 @@ A self-hosted music recommendation and downloader service built with Spring Boot
   - **Top Genres / Tags**: Recommends tracks from your favorite genres.
   - **Manual Exploration**: Search directly by artist name, track similarity, or genre tags.
 - **Library Deduplication**: Checks existing local files and tags before downloading to prevent duplicates.
-- **Format Management**: Configurable output formats (MP3 up to 320kbps, FLAC, M4A, Opus), auto-cleanup of `.webm` files via ffmpeg, and optional lyric (.lrc) downloading.
+- **Format Management**: Configurable output formats (MP3 up to 320kbps, M4A, Opus), auto-cleanup of `.webm` files via ffmpeg, and optional lyric (.lrc) downloading.
 - **Minimalist Web UI**: Terminal-styled dashboard with real-time download progress via WebSockets.
 
 ## Quick Start
