@@ -3,7 +3,7 @@
   <Profile>
     This repository provides Unraid templates for **Hera** and its companion service **Downtify**.
 
-    Hera is a self-hosted music recommendation, automated downloader, and library synchronization service powered by Last.fm, YouTube Music, and Downtify. It automatically discovers new music tailored to your listening taste, provides direct song/album downloading, and manages your local audio library.
+    Hera is a self-hosted music recommendation, automated downloader, and library synchronization service powered by Last.fm and Downtify. It automatically discovers new music tailored to your listening taste, provides direct song/album downloading, and manages your local audio library.
 
     For bugs, feature requests, or support, please open an issue on the GitHub repository: https://github.com/athuull/hera/issues
   </Profile>
