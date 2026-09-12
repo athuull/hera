@@ -1,7 +1,7 @@
 {
   "lastfmApiKey" : "936b1ac70edb22b26ffd03c3dce5cb7b",
   "lastfmUsername" : "athuuul",
-  "maxDailyDownloads" : 5,
+  "maxDailyDownloads" : 10,
   "cronSchedule" : "0 0 2 * * *",
   "scheduledStrategy" : "HYBRID",
   "format" : "mp3",

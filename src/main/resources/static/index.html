@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>hera</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -101,8 +103,12 @@
         th, td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
         th { background: var(--surface-elevated); color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-focus); }
         tr:last-child td { border-bottom: 0; }
-        tbody tr:hover { background: var(--tr-hover); }
         .tag-pill { font-size: 11.5px; padding: 2px 6px; background: var(--btn-bg); border: 1px solid var(--border); border-radius: 3px; color: var(--text-muted); }
+        .status-badge { font-size: 11px; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
+        .status-badge.success { background: rgba(52, 211, 153, 0.15); color: var(--status-ok); border: 1px solid rgba(52, 211, 153, 0.3); }
+        .status-badge.failed { background: rgba(248, 113, 113, 0.15); color: var(--status-err); border: 1px solid rgba(248, 113, 113, 0.3); }
+        .status-badge.skipped { background: rgba(130, 138, 156, 0.15); color: var(--text-muted); border: 1px solid var(--border); }
+        .source-badge { font-size: 11px; padding: 2px 6px; border-radius: 3px; background: var(--surface-elevated); border: 1px solid var(--border); color: var(--text-muted); }
 
         .loading-pulse {
             display: inline-flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 13px;
@@ -464,6 +470,18 @@
 
 <hr>
 
+<h2>recent downloads <span id="history-count" style="color: var(--text-dim); font-size: 13px;"></span></h2>
+<div class="library-toolbar" style="margin-bottom: 12px;">
+    <button onclick="refreshHistory()">[refresh history]</button>
+    <button onclick="clearHistory()">[clear history]</button>
+    <input type="text" id="history-filter" placeholder="filter history..." oninput="filterHistory()" style="width: 220px;">
+</div>
+<div id="history-table-container">
+    <p style="color: var(--text-muted);">loading history...</p>
+</div>
+
+<hr>
+
 <h2>library <span id="library-count" style="color: var(--text-dim); font-size: 13px;"></span></h2>
 <div class="library-toolbar">
     <button onclick="refreshLibrary()">[refresh library]</button>
@@ -484,7 +502,7 @@
 </footer>
 
 <script>
-    let recommendations = [], libraryData = [], ws = null;
+    let recommendations = [], libraryData = [], historyData = [], ws = null;
     let batchState = {
         active: false,
         total: 0,
@@ -654,6 +672,7 @@
             updateBatchUI(totalDone, totalDone, 100, `finished: ${downloadedCount} downloaded, ${failedCount} failed${skippedCount ? `, ${skippedCount} skipped` : ''}`, 'connected');
             logProgress(`batch complete: ${downloadedCount} downloaded, ${failedCount} failed${skippedCount ? `, ${skippedCount} skipped` : ''}`);
             refreshLibrary();
+            refreshHistory();
             setTimeout(() => {
                 setDownloadStatus(false, '[idle]');
                 const pillT = document.getElementById('track-status-pill');
@@ -1101,6 +1120,121 @@
         }
     }
 
+    async function refreshHistory() {
+        const container = document.getElementById('history-table-container');
+        try {
+            const res = await fetch('/api/history?limit=100');
+            if (!res.ok) throw new Error(`http ${res.status}`);
+            historyData = await res.json();
+            const countEl = document.getElementById('history-count');
+            if (countEl) countEl.innerText = `(${historyData.length} records)`;
+            renderHistory(historyData);
+        } catch (e) {
+            container.innerHTML = `<p style="color: var(--status-err);">error loading history: ${escapeHtml(e.message)}</p>`;
+        }
+    }
+
+    function renderHistory(items) {
+        const container = document.getElementById('history-table-container');
+        if (!items || items.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-muted);">no download history recorded yet.</p>';
+            return;
+        }
+
+        let html = `<div class="table-container"><table><thead><tr>
+            <th style="width: 140px;">time</th>
+            <th>track / title</th>
+            <th>artist</th>
+            <th>source</th>
+            <th>reason</th>
+            <th style="width: 90px; text-align: center;">status</th>
+        </tr></thead><tbody>`;
+
+        items.forEach(item => {
+            const timeStr = formatHistoryTime(item.timestamp);
+            const statusClass = (item.status || '').toLowerCase() === 'success' ? 'success' : ((item.status || '').toLowerCase() === 'failed' ? 'failed' : 'skipped');
+            const statusLabel = (item.status || '').toLowerCase() === 'success' ? '[✓ success]' : ((item.status || '').toLowerCase() === 'failed' ? '[✗ failed]' : '[skipped]');
+            const sourceLabel = formatSourceLabel(item.source);
+            const displayTitle = item.title || item.filename || 'unknown';
+            const displayArtist = item.artist || '-';
+
+            html += `<tr>
+                <td style="color: var(--text-muted); font-size: 12px; white-space: nowrap;">${escapeHtml(timeStr)}</td>
+                <td style="font-weight: 600; color: var(--heading-color);">${escapeHtml(displayTitle)}</td>
+                <td>${escapeHtml(displayArtist)}</td>
+                <td><span class="source-badge">${escapeHtml(sourceLabel)}</span></td>
+                <td style="color: var(--text-muted); font-size: 12px;">${escapeHtml(item.reason || '-')}</td>
+                <td style="text-align: center;"><span class="status-badge ${statusClass}">${escapeHtml(statusLabel)}</span></td>
+            </tr>`;
+        });
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    }
+
+    function formatHistoryTime(iso) {
+        if (!iso) return '-';
+        try {
+            const date = new Date(iso);
+            if (isNaN(date.getTime())) return iso;
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMin = Math.floor(diffMs / 60000);
+            const diffHr = Math.floor(diffMin / 60);
+
+            if (diffMin < 1) return 'just now';
+            if (diffMin < 60) return `${diffMin}m ago`;
+            if (diffHr < 24) return `${diffHr}h ago`;
+
+            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+                   date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+        } catch (e) {
+            return iso;
+        }
+    }
+
+    function formatSourceLabel(source) {
+        if (!source) return 'unknown';
+        switch (source) {
+            case 'NIGHTLY_AUTO': return 'nightly auto';
+            case 'MANUAL_SEARCH': return 'manual';
+            case 'URL_IMPORT': return 'link import';
+            default: return source.toLowerCase().replace(/_/g, ' ');
+        }
+    }
+
+    function filterHistory() {
+        const q = (document.getElementById('history-filter').value || '').toLowerCase();
+        if (!q) {
+            renderHistory(historyData);
+            return;
+        }
+        const filtered = historyData.filter(item => {
+            return (item.title && item.title.toLowerCase().includes(q)) ||
+                   (item.artist && item.artist.toLowerCase().includes(q)) ||
+                   (item.filename && item.filename.toLowerCase().includes(q)) ||
+                   (item.reason && item.reason.toLowerCase().includes(q)) ||
+                   (item.source && item.source.toLowerCase().includes(q)) ||
+                   (item.status && item.status.toLowerCase().includes(q));
+        });
+        renderHistory(filtered);
+    }
+
+    async function clearHistory() {
+        if (!confirm('clear all download history?')) return;
+        try {
+            const res = await fetch('/api/history', { method: 'DELETE' });
+            if (!res.ok) throw new Error(`http ${res.status}`);
+            historyData = [];
+            const countEl = document.getElementById('history-count');
+            if (countEl) countEl.innerText = '(0 records)';
+            renderHistory([]);
+            logProgress('system: download history cleared');
+        } catch (e) {
+            alert(`failed to clear history: ${e.message}`);
+        }
+    }
+
     function selectAll(checked) {
         document.querySelectorAll('.track-check').forEach(cb => cb.checked = checked);
         const h = document.getElementById('select-all-header');
@@ -1120,6 +1254,7 @@
         connectWS();
         toggleSeedInput();
         openSettings();
+        refreshHistory();
         refreshLibrary();
     });
 </script>

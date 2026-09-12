@@ -187,7 +187,8 @@ class DownloadServiceTest {
                 Mockito.mock(SettingsService.class),
                 Mockito.mock(DeduplicationService.class),
                 Mockito.mock(FormatCleanupService.class),
-                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class)
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class),
+                Mockito.mock(HistoryService.class)
         );
 
         Track requested = new Track("Tory Lanez", "Say It", null, null);
@@ -216,7 +217,8 @@ class DownloadServiceTest {
                 Mockito.mock(SettingsService.class),
                 Mockito.mock(DeduplicationService.class),
                 Mockito.mock(FormatCleanupService.class),
-                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class)
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class),
+                Mockito.mock(HistoryService.class)
         );
 
         Track requested = new Track("Tory Lanez", "Say It", null, null);
@@ -268,7 +270,8 @@ class DownloadServiceTest {
                 Mockito.mock(SettingsService.class),
                 Mockito.mock(DeduplicationService.class),
                 Mockito.mock(FormatCleanupService.class),
-                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class)
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class),
+                Mockito.mock(HistoryService.class)
         );
 
         Track requested = new Track("Tory Lanez", "Say It", null, null);
@@ -315,7 +318,8 @@ class DownloadServiceTest {
                 Mockito.mock(SettingsService.class),
                 fakeDedup,
                 Mockito.mock(FormatCleanupService.class),
-                fakeHandler
+                fakeHandler,
+                Mockito.mock(HistoryService.class)
         );
 
         List<DownloadResult> results = svc.downloadBatch(List.of(trackFail, trackOk));
@@ -366,7 +370,8 @@ class DownloadServiceTest {
                 Mockito.mock(SettingsService.class),
                 fakeDedup,
                 Mockito.mock(FormatCleanupService.class),
-                fakeHandler
+                fakeHandler,
+                Mockito.mock(HistoryService.class)
         );
 
         List<DownloadResult> results = svc.downloadBatch(List.of(trackSkipped, trackNotFound));
@@ -415,7 +420,8 @@ class DownloadServiceTest {
                 fakeSettingsService,
                 Mockito.mock(DeduplicationService.class),
                 Mockito.mock(FormatCleanupService.class),
-                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class)
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class),
+                Mockito.mock(HistoryService.class)
         );
 
         svc.configureDowntify();
@@ -451,7 +457,8 @@ class DownloadServiceTest {
                 fakeSettingsService,
                 Mockito.mock(DeduplicationService.class),
                 Mockito.mock(FormatCleanupService.class),
-                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class)
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class),
+                Mockito.mock(HistoryService.class)
         );
 
         String albumUrl = "https://music.youtube.com/browse/MPREb_xyz123";
@@ -481,7 +488,8 @@ class DownloadServiceTest {
                 fakeSettingsService,
                 Mockito.mock(DeduplicationService.class),
                 Mockito.mock(FormatCleanupService.class),
-                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class)
+                Mockito.mock(com.athuull.hera.ws.ProgressWebSocketHandler.class),
+                Mockito.mock(HistoryService.class)
         );
 
         String spotifyAlbumUrl = "https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy";

@@ -1,6 +1,7 @@
 package com.athuull.hera.service;
 
 import com.athuull.hera.model.DownloadResult;
+import com.athuull.hera.model.HistoryEntry;
 import com.athuull.hera.model.Recommendation;
 import com.athuull.hera.model.RecommendationRequest;
 import com.athuull.hera.model.RecommendationStrategy;
@@ -29,6 +30,7 @@ public class OrchestratorService implements ApplicationRunner {
     private final RecommendationService recommendationService;
     private final DownloadService downloadService;
     private final SettingsService settingsService;
+    private final HistoryService historyService;
     private final TaskScheduler taskScheduler;
     private final TaskExecutor taskExecutor;
 
@@ -38,11 +40,13 @@ public class OrchestratorService implements ApplicationRunner {
     public OrchestratorService(RecommendationService recommendationService,
                                DownloadService downloadService,
                                SettingsService settingsService,
+                               HistoryService historyService,
                                TaskScheduler taskScheduler,
                                @Qualifier("heraTaskExecutor") TaskExecutor taskExecutor) {
         this.recommendationService = recommendationService;
         this.downloadService = downloadService;
         this.settingsService = settingsService;
+        this.historyService = historyService;
         this.taskScheduler = taskScheduler;
         this.taskExecutor = taskExecutor;
     }
@@ -97,8 +101,30 @@ public class OrchestratorService implements ApplicationRunner {
                 return;
             }
 
+            String strategyName = settingsService.getSettings().getScheduledStrategy() != null
+                    ? settingsService.getSettings().getScheduledStrategy().name().toLowerCase().replace('_', ' ')
+                    : "hybrid";
+
             List<Track> tracks = recs.stream().map(Recommendation::getTrack).collect(Collectors.toList());
             List<DownloadResult> results = downloadService.downloadBatch(tracks);
+
+            // Record history for each result
+            for (int i = 0; i < results.size(); i++) {
+                DownloadResult r = results.get(i);
+                Track t = r.getTrack() != null ? r.getTrack() : (i < tracks.size() ? tracks.get(i) : null);
+                String reason = "nightly " + strategyName + " discovery";
+                if (i < recs.size() && recs.get(i).getSourceArtist() != null && !recs.get(i).getSourceArtist().isEmpty()) {
+                    reason += " (similar to " + recs.get(i).getSourceArtist() + ")";
+                }
+                historyService.record(HistoryEntry.builder()
+                        .artist(t != null ? t.getArtist() : "")
+                        .title(t != null ? t.getTitle() : "")
+                        .filename(r.getFilename())
+                        .source("NIGHTLY_AUTO")
+                        .reason(reason)
+                        .status(r.isDone() ? "SUCCESS" : r.isError() ? "FAILED" : "SKIPPED")
+                        .build());
+            }
 
             long succeeded = results.stream().filter(DownloadResult::isDone).count();
             long failed = results.stream().filter(DownloadResult::isError).count();
@@ -112,6 +138,22 @@ public class OrchestratorService implements ApplicationRunner {
         log.info("=== Manual download: {} ===", request.getStrategy());
         List<Recommendation> recs = recommendationService.getRecommendations(request);
         List<Track> tracks = recs.stream().map(Recommendation::getTrack).collect(Collectors.toList());
-        return downloadService.downloadBatch(tracks);
+        List<DownloadResult> results = downloadService.downloadBatch(tracks);
+
+        // Record history for manual downloads
+        for (int i = 0; i < results.size(); i++) {
+            DownloadResult r = results.get(i);
+            Track t = r.getTrack() != null ? r.getTrack() : (i < tracks.size() ? tracks.get(i) : null);
+            historyService.record(HistoryEntry.builder()
+                    .artist(t != null ? t.getArtist() : "")
+                    .title(t != null ? t.getTitle() : "")
+                    .filename(r.getFilename())
+                    .source("MANUAL_SEARCH")
+                    .reason("manual " + request.getStrategy().name().toLowerCase().replace('_', ' '))
+                    .status(r.isDone() ? "SUCCESS" : r.isError() ? "FAILED" : "SKIPPED")
+                    .build());
+        }
+
+        return results;
     }
 }

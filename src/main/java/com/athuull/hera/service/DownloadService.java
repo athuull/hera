@@ -6,6 +6,7 @@ import com.athuull.hera.client.DowntifyClient;
 import com.athuull.hera.config.DowntifyConfig;
 import com.athuull.hera.model.AppSettings;
 import com.athuull.hera.model.DownloadResult;
+import com.athuull.hera.model.HistoryEntry;
 import com.athuull.hera.model.Track;
 import com.athuull.hera.ws.ProgressWebSocketHandler;
 import org.slf4j.Logger;
@@ -27,6 +28,7 @@ public class DownloadService {
     private final DeduplicationService dedupService;
     private final FormatCleanupService formatCleanupService;
     private final ProgressWebSocketHandler progressHandler;
+    private final HistoryService historyService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ReentrantLock downloadLock = new ReentrantLock();
 
@@ -36,13 +38,15 @@ public class DownloadService {
                            SettingsService settingsService,
                            DeduplicationService dedupService,
                            FormatCleanupService formatCleanupService,
-                           ProgressWebSocketHandler progressHandler) {
+                           ProgressWebSocketHandler progressHandler,
+                           HistoryService historyService) {
         this.downtifyClient = downtifyClient;
         this.config = config;
         this.settingsService = settingsService;
         this.dedupService = dedupService;
         this.formatCleanupService = formatCleanupService;
         this.progressHandler = progressHandler;
+        this.historyService = historyService;
     }
 
     public void configureDowntify() {
@@ -475,6 +479,13 @@ public class DownloadService {
                         "message", "system: album download completed (" + count + " tracks)"
                 ));
                 dedupService.refreshIndex();
+                historyService.record(HistoryEntry.builder()
+                        .artist("").title("")
+                        .filename(cleanUrl)
+                        .source("URL_IMPORT")
+                        .reason("youtube music album (" + count + " tracks)")
+                        .status("SUCCESS")
+                        .build());
                 return DownloadResult.builder().status("done").filename(cleanUrl).build();
             }
 
@@ -489,6 +500,13 @@ public class DownloadService {
                             "message", "system: resolved link to " + songList.size() + " songs. Queuing batch..."
                     ));
                     downtifyClient.downloadBatch(songList, cleanUrl, false);
+                    historyService.record(HistoryEntry.builder()
+                            .artist("").title("")
+                            .filename(cleanUrl)
+                            .source("URL_IMPORT")
+                            .reason("pasted link (" + songList.size() + " tracks resolved)")
+                            .status("SUCCESS")
+                            .build());
                     return DownloadResult.builder().status("queued").filename(cleanUrl).build();
                 }
             } catch (Exception e) {
@@ -501,6 +519,13 @@ public class DownloadService {
                     "message", "system: download complete -> " + (filename != null ? filename : cleanUrl)
             ));
             dedupService.refreshIndex();
+            historyService.record(HistoryEntry.builder()
+                    .artist("").title("")
+                    .filename(filename != null ? filename : cleanUrl)
+                    .source("URL_IMPORT")
+                    .reason("pasted link")
+                    .status("SUCCESS")
+                    .build());
             return DownloadResult.builder().filename(filename).status("done").build();
         } catch (Exception e) {
             log.error("Download failed for URL '{}': {}", cleanUrl, e.getMessage());
@@ -508,6 +533,13 @@ public class DownloadService {
                     "type", "log",
                     "message", "system: error downloading link: " + e.getMessage()
             ));
+            historyService.record(HistoryEntry.builder()
+                    .artist("").title("")
+                    .filename(cleanUrl)
+                    .source("URL_IMPORT")
+                    .reason("pasted link")
+                    .status("FAILED")
+                    .build());
             return DownloadResult.builder().status("error").errorMessage(e.getMessage()).build();
         }
     }

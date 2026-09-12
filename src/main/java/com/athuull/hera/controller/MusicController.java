@@ -25,12 +25,14 @@ public class MusicController {
     private final DowntifyClient downtifyClient;
     private final FormatCleanupService formatCleanupService;
     private final SettingsService settingsService;
+    private final HistoryService historyService;
     private final TaskExecutor taskExecutor;
 
     @Autowired
     public MusicController(OrchestratorService orchestrator, DownloadService downloadService,
                            RecommendationService recommendationService, DowntifyClient downtifyClient,
                            FormatCleanupService formatCleanupService, SettingsService settingsService,
+                           HistoryService historyService,
                            @Qualifier("heraTaskExecutor") TaskExecutor taskExecutor) {
         this.orchestrator = orchestrator;
         this.downloadService = downloadService;
@@ -38,6 +40,7 @@ public class MusicController {
         this.downtifyClient = downtifyClient;
         this.formatCleanupService = formatCleanupService;
         this.settingsService = settingsService;
+        this.historyService = historyService;
         this.taskExecutor = taskExecutor;
     }
 
@@ -192,5 +195,18 @@ public class MusicController {
     public ResponseEntity<Map<String, String>> triggerSchedule() {
         orchestrator.triggerScheduledPipelineAsync();
         return ResponseEntity.ok(Map.of("message", "Pipeline triggered — check progress feed for live updates"));
+    }
+
+    // ─── History ───
+
+    @GetMapping("/history")
+    public ResponseEntity<List<HistoryEntry>> getHistory(@RequestParam(defaultValue = "50") int limit) {
+        return ResponseEntity.ok(historyService.getRecent(limit));
+    }
+
+    @DeleteMapping("/history")
+    public ResponseEntity<Map<String, Object>> clearHistory() {
+        historyService.clear();
+        return ResponseEntity.ok(Map.of("cleared", true));
     }
 }
