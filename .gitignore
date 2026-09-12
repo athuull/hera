@@ -6,3 +6,8 @@ target/
 *.class
 .DS_Store
 .mvn/wrapper/maven-wrapper.jar
+settings.json
+config/settings.json
+history.json
+*.tmp
+
