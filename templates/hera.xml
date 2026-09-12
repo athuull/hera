@@ -20,7 +20,7 @@
   <Requires>Requires Downtify (henriquesebastiao/downtify) running and accessible on the network on port 8000.</Requires>
   <Changes>Initial Community Apps Release</Changes>
   <Date>2026-09-13</Date>
-  <License>MIT</License>
+  <License>GPLv3</License>
 
   <Screenshot>https://raw.githubusercontent.com/athuull/hera/main/Apps/Hera/screenshot-1.png</Screenshot>
   <Screenshot>https://raw.githubusercontent.com/athuull/hera/main/Apps/Hera/screenshot-2.png</Screenshot>
