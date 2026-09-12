@@ -42,8 +42,10 @@ pipeline {
                         chmod +x ~/.docker/cli-plugins/docker-compose
                     fi
 
+                    mkdir -p $DEPLOY_DIR
+                    cp docker-compose.yml $DEPLOY_DIR/docker-compose.yml
+
                     cd $DEPLOY_DIR
-                    git pull origin main
                     docker compose pull
                     docker compose up -d
                 '''
