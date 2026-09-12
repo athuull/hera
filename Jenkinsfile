@@ -4,7 +4,6 @@ pipeline {
     environment {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
         IMAGE_NAME = 'athuul/hera:latest'
-        DEPLOY_DIR = '/DATA/AppData/hera'
     }
 
     stages {
@@ -35,10 +34,6 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                    cd $DEPLOY_DIR
-
-                    git pull origin main
-
                     docker compose pull
 
                     docker compose up -d
