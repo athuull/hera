@@ -4,6 +4,7 @@ pipeline {
     environment {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
         IMAGE_NAME = 'athuul/hera:latest'
+        DEPLOY_DIR = '/DATA/AppData/hera'
     }
 
     stages {
@@ -34,8 +35,16 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                    docker compose pull
+                    if ! docker compose version >/dev/null 2>&1; then
+                        echo "Installing Docker Compose plugin..."
+                        mkdir -p ~/.docker/cli-plugins
+                        curl -sSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" -o ~/.docker/cli-plugins/docker-compose
+                        chmod +x ~/.docker/cli-plugins/docker-compose
+                    fi
 
+                    cd $DEPLOY_DIR
+                    git pull origin main
+                    docker compose pull
                     docker compose up -d
                 '''
             }
