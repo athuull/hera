@@ -17,7 +17,18 @@ public class SettingsService {
 
     private static final Logger log = LoggerFactory.getLogger(SettingsService.class);
     private static final String SETTINGS_FILE = "settings.json";
-    private final ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+    private final ObjectMapper mapper;
+
+    public SettingsService() {
+        this(new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT));
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public SettingsService(ObjectMapper mapper) {
+        this.mapper = mapper != null
+                ? mapper.copy().enable(SerializationFeature.INDENT_OUTPUT)
+                : new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+    }
 
     @Value("${app.config-dir:./}")
     private String configDir;

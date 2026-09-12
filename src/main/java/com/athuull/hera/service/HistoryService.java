@@ -23,8 +23,19 @@ public class HistoryService {
     private static final String HISTORY_FILE = "history.json";
     private static final int MAX_ENTRIES = 200;
 
-    private final ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+    private final ObjectMapper mapper;
     private final LinkedList<HistoryEntry> entries = new LinkedList<>();
+
+    public HistoryService() {
+        this(new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT));
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public HistoryService(ObjectMapper mapper) {
+        this.mapper = mapper != null
+                ? mapper.copy().enable(SerializationFeature.INDENT_OUTPUT)
+                : new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+    }
 
     @Value("${app.config-dir:./}")
     private String configDir;

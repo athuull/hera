@@ -29,8 +29,18 @@ public class DownloadService {
     private final FormatCleanupService formatCleanupService;
     private final ProgressWebSocketHandler progressHandler;
     private final HistoryService historyService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final ReentrantLock downloadLock = new ReentrantLock();
+
+    public DownloadService(DowntifyClient downtifyClient,
+                           DowntifyConfig config,
+                           SettingsService settingsService,
+                           DeduplicationService dedupService,
+                           FormatCleanupService formatCleanupService,
+                           ProgressWebSocketHandler progressHandler,
+                           HistoryService historyService) {
+        this(downtifyClient, config, settingsService, dedupService, formatCleanupService, progressHandler, historyService, new ObjectMapper());
+    }
 
     @Autowired
     public DownloadService(DowntifyClient downtifyClient,
@@ -39,7 +49,8 @@ public class DownloadService {
                            DeduplicationService dedupService,
                            FormatCleanupService formatCleanupService,
                            ProgressWebSocketHandler progressHandler,
-                           HistoryService historyService) {
+                           HistoryService historyService,
+                           ObjectMapper objectMapper) {
         this.downtifyClient = downtifyClient;
         this.config = config;
         this.settingsService = settingsService;
@@ -47,6 +58,7 @@ public class DownloadService {
         this.formatCleanupService = formatCleanupService;
         this.progressHandler = progressHandler;
         this.historyService = historyService;
+        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
     }
 
     public void configureDowntify() {
@@ -605,10 +617,6 @@ public class DownloadService {
             if (song.has("song_id") && lookup.containsKey(song.get("song_id").asText())) return lookup.get(song.get("song_id").asText());
         }
         return null;
-    }
-
-    public DownloadResult downloadSingleByUrl(String url) {
-        return downloadUrlOrAlbum(url);
     }
 
     public DownloadResult downloadUrlOrAlbum(String url) {

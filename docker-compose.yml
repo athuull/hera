@@ -90,5 +90,7 @@ x-casaos:
   screenshot_link:
     - https://raw.githubusercontent.com/athuull/hera/main/Apps/Hera/screenshot-1.png
     - https://raw.githubusercontent.com/athuull/hera/main/Apps/Hera/screenshot-2.png
+    - https://raw.githubusercontent.com/athuull/hera/main/Apps/Hera/screenshot-3.png
+    - https://raw.githubusercontent.com/athuull/hera/main/Apps/Hera/screenshot-4.png
   port_map: "8080"
   index: /

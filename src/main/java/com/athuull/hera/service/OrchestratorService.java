@@ -53,10 +53,7 @@ public class OrchestratorService implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        String cron = settingsService.getSettings() != null ? settingsService.getSettings().getCronSchedule() : null;
-        if (cron != null && !cron.isBlank()) {
-            rescheduleCron(cron);
-        }
+        // ApplicationRunner lifecycle hook retained for compatibility
     }
 
     public synchronized void rescheduleCron(String cronExpression) {
@@ -70,7 +67,7 @@ public class OrchestratorService implements ApplicationRunner {
         }
         try {
             CronTrigger trigger = new CronTrigger(cronExpression);
-            scheduledFuture = taskScheduler.schedule(this::scheduledRun, trigger);
+            scheduledFuture = taskScheduler.schedule(this::runScheduledPipeline, trigger);
             log.info("Scheduled nightly pipeline with cron: {}", cronExpression);
         } catch (Exception e) {
             log.error("Invalid cron expression '{}': {}", cronExpression, e.getMessage());
@@ -81,11 +78,11 @@ public class OrchestratorService implements ApplicationRunner {
     public void onStartup() {
         log.info("=== Hera Music Downloader Starting ===");
         downloadService.configureDowntify();
+        String cron = settingsService.getSettings() != null ? settingsService.getSettings().getCronSchedule() : null;
+        if (cron != null && !cron.isBlank()) {
+            rescheduleCron(cron);
+        }
         log.info("Ready. Scheduled downloads will run per cron schedule.");
-    }
-
-    public void scheduledRun() {
-        runScheduledPipeline();
     }
 
     public void triggerScheduledPipelineAsync() {

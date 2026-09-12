@@ -21,7 +21,7 @@ public class DowntifyClient {
 
     private final RestTemplate restTemplate;
     private final DowntifyConfig config;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
 
     private String url(String path) {
         return config.getBaseUrl() + path;

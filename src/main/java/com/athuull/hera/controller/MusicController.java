@@ -27,14 +27,15 @@ public class MusicController {
     private final SettingsService settingsService;
     private final HistoryService historyService;
     private final TaskExecutor taskExecutor;
-    private final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper;
 
     @Autowired
     public MusicController(OrchestratorService orchestrator, DownloadService downloadService,
                            RecommendationService recommendationService, DowntifyClient downtifyClient,
                            FormatCleanupService formatCleanupService, SettingsService settingsService,
                            HistoryService historyService,
-                           @Qualifier("heraTaskExecutor") TaskExecutor taskExecutor) {
+                           @Qualifier("heraTaskExecutor") TaskExecutor taskExecutor,
+                           com.fasterxml.jackson.databind.ObjectMapper mapper) {
         this.orchestrator = orchestrator;
         this.downloadService = downloadService;
         this.recommendationService = recommendationService;
@@ -43,6 +44,7 @@ public class MusicController {
         this.settingsService = settingsService;
         this.historyService = historyService;
         this.taskExecutor = taskExecutor;
+        this.mapper = mapper != null ? mapper : new com.fasterxml.jackson.databind.ObjectMapper();
     }
 
     // ─── Direct Search ───
@@ -118,6 +120,7 @@ public class MusicController {
 
     // ─── Downloads ───
 
+    @Deprecated
     @PostMapping("/download")
     public ResponseEntity<List<DownloadResult>> download(@RequestBody RecommendationRequest request) {
         return ResponseEntity.ok(orchestrator.runManual(request));
