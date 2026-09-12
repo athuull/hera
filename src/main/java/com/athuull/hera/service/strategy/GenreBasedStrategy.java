@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class GenreBasedStrategy extends AbstractRecommendationStrategy {
@@ -34,32 +36,40 @@ public class GenreBasedStrategy extends AbstractRecommendationStrategy {
         Set<String> recentlyPlayed = getRecentlyPlayedKeys(username, 50);
         seen.addAll(recentlyPlayed);
 
-        Map<String, Integer> genreScores = new HashMap<>();
+        Map<String, Integer> genreScores = new ConcurrentHashMap<>();
 
         try {
-            JsonNode topArtists = lastFm.userGetTopArtists(username, "3month", 10);
+            int topArtistCount = Math.min(6, Math.max(4, limit / 3));
+            JsonNode topArtists = lastFm.userGetTopArtists(username, "3month", topArtistCount);
             JsonNode artistNodes = topArtists.path("topartists").path("artist");
             if (!artistNodes.isArray() || artistNodes.isEmpty()) return Collections.emptyList();
+
+            List<CompletableFuture<Void>> tagFutures = new ArrayList<>();
 
             for (JsonNode artistNode : artistNodes) {
                 String artist = artistNode.path("name").asText();
                 int playcount = artistNode.path("playcount").asInt(1);
 
-                try {
-                    JsonNode tags = lastFm.artistGetTopTags(artist);
-                    JsonNode tagNodes = tags.path("toptags").path("tag");
+                tagFutures.add(CompletableFuture.runAsync(() -> {
+                    try {
+                        JsonNode tags = lastFm.artistGetTopTags(artist);
+                        JsonNode tagNodes = tags.path("toptags").path("tag");
 
-                    if (tagNodes.isArray()) {
-                        for (JsonNode tagNode : tagNodes) {
-                            String tag = tagNode.path("name").asText().toLowerCase();
-                            if (tag.isEmpty() || tag.equals("seen live") || tag.equals("favorites") || tag.equals("favourite")) continue;
-                            genreScores.merge(tag, playcount, Integer::sum);
+                        if (tagNodes.isArray()) {
+                            for (JsonNode tagNode : tagNodes) {
+                                String tag = tagNode.path("name").asText().toLowerCase();
+                                if (tag.isEmpty() || tag.equals("seen live") || tag.equals("favorites") || tag.equals("favourite")) continue;
+                                genreScores.merge(tag, playcount, Integer::sum);
+                            }
                         }
+                    } catch (Exception e) {
+                        log.debug("Failed to get tags for artist '{}': {}", artist, e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.debug("Failed to get tags for artist '{}': {}", artist, e.getMessage());
-                }
+                }));
             }
+
+            CompletableFuture.allOf(tagFutures.toArray(new CompletableFuture[0])).join();
+
         } catch (Exception e) {
             log.error("Failed to fetch top artists for genres: {}", e.getMessage());
             return Collections.emptyList();
@@ -76,34 +86,48 @@ public class GenreBasedStrategy extends AbstractRecommendationStrategy {
         log.info("Derived top genres for {}: {}", username, topGenres);
 
         int tagsToUse = topGenres.size();
-        int tracksPerTag = Math.max(1, limit / tagsToUse);
+        int tracksPerTag = Math.max(2, (limit / tagsToUse) + 1);
+
+        List<CompletableFuture<List<Recommendation>>> genreTrackFutures = new ArrayList<>();
 
         for (String tag : topGenres) {
+            genreTrackFutures.add(CompletableFuture.supplyAsync(() -> {
+                List<Recommendation> tagRecs = new ArrayList<>();
+                try {
+                    JsonNode topTracks = lastFm.tagGetTopTracks(tag, tracksPerTag);
+                    JsonNode tracks = topTracks.path("tracks").path("track");
+
+                    if (tracks.isArray()) {
+                        for (JsonNode track : tracks) {
+                            String artist = track.path("artist").path("name").asText("Unknown");
+                            String title = track.path("name").asText();
+
+                            Track t = new Track(artist, title, null, null);
+                            tagRecs.add(new Recommendation(t, "genre:" + tag, 0.7, 0, false, false, null));
+                        }
+                    }
+                } catch (Exception e) {
+                    log.debug("Failed to fetch top tracks for tag '{}': {}", tag, e.getMessage());
+                }
+                return tagRecs;
+            }));
+        }
+
+        for (CompletableFuture<List<Recommendation>> gf : genreTrackFutures) {
             try {
-                JsonNode topTracks = lastFm.tagGetTopTracks(tag, tracksPerTag);
-                JsonNode tracks = topTracks.path("tracks").path("track");
-
-                if (tracks.isArray()) {
-                    for (JsonNode track : tracks) {
-                        String artist = track.path("artist").path("name").asText("Unknown");
-                        String title = track.path("name").asText();
-
-                        Track t = new Track(artist, title, null, null);
-                        if (seen.add(t.dedupeKey())) {
-                            if (!dedupService.alreadyDownloaded(artist, title)) {
-                                int rank = track.path("@attr").path("rank").asInt(1);
-                                double score = 1.0 / rank;
-                                all.add(new Recommendation(t, "genre:" + tag, score, 0, false, false, null));
-                            }
+                for (Recommendation r : gf.join()) {
+                    if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
+                        if (!dedupService.alreadyDownloaded(r.getTrack().getArtist(), r.getTrack().getTitle())) {
+                            all.add(r);
                         }
                     }
                 }
             } catch (Exception e) {
-                log.debug("Tag tracks failed for '{}': {}", tag, e.getMessage());
+                log.debug("Genre track future failed: {}", e.getMessage());
             }
         }
 
-        log.info("Genre-based: collected {} tracks across {} genres", all.size(), tagsToUse);
+        log.info("Genre Based: collected {} candidate tracks", all.size());
         return rankAndLimit(all, limit);
     }
 }

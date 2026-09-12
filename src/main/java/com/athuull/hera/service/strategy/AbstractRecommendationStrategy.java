@@ -44,18 +44,17 @@ public abstract class AbstractRecommendationStrategy implements RecommendationSt
         }
     }
 
-    protected void extractTopTracks(String artist, String source, double matchScore,
-                                   Set<String> seen, List<Recommendation> recs) {
+    protected List<Recommendation> getTopTracksForArtist(String artist, String source, double matchScore, int limit) {
+        List<Recommendation> result = new ArrayList<>();
         try {
-            JsonNode topTracks = lastFm.artistGetTopTracks(artist, 3);
+            JsonNode topTracks = lastFm.artistGetTopTracks(artist, limit > 0 ? limit : 3);
             JsonNode tracks = topTracks.path("toptracks").path("track");
-            if (!tracks.isArray()) return;
+            if (!tracks.isArray()) return result;
 
             for (JsonNode track : tracks) {
                 String title = track.path("name").asText();
                 int listeners = track.path("listeners").asInt(0);
 
-                // Use track's explicit artist if provided by Last.fm, fallback to query artist
                 String trackArtist = track.path("artist").path("name").asText(
                         track.path("artist").path("#text").asText(
                                 track.path("artist").asText(artist)));
@@ -64,15 +63,24 @@ public abstract class AbstractRecommendationStrategy implements RecommendationSt
                 }
 
                 Track t = new Track(trackArtist, title, null, null);
-                if (seen.add(t.dedupeKey())) {
-                    if (!dedupService.alreadyDownloaded(trackArtist, title) &&
-                        !dedupService.alreadyDownloaded(artist, title)) {
-                        recs.add(new Recommendation(t, source, matchScore, listeners, false, false, null));
-                    }
-                }
+                result.add(new Recommendation(t, source, matchScore, listeners, false, false, null));
             }
         } catch (Exception e) {
             log.debug("Top tracks lookup failed for '{}': {}", artist, e.getMessage());
+        }
+        return result;
+    }
+
+    protected void extractTopTracks(String artist, String source, double matchScore,
+                                   Set<String> seen, List<Recommendation> recs) {
+        List<Recommendation> tracks = getTopTracksForArtist(artist, source, matchScore, 3);
+        for (Recommendation r : tracks) {
+            if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
+                if (!dedupService.alreadyDownloaded(r.getTrack().getArtist(), r.getTrack().getTitle()) &&
+                    !dedupService.alreadyDownloaded(artist, r.getTrack().getTitle())) {
+                    recs.add(r);
+                }
+            }
         }
     }
 

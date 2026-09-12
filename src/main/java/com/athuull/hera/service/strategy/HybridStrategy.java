@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class HybridStrategy extends AbstractRecommendationStrategy {
@@ -40,7 +41,47 @@ public class HybridStrategy extends AbstractRecommendationStrategy {
         Set<String> seen = new HashSet<>();
 
         int nowListeningQuota = Math.max(1, (int) (limit * 0.4));
-        List<Recommendation> nowRecs = nowListeningStrategy.getRecommendations(request, nowListeningQuota);
+        int personalizedQuota = Math.max(1, (int) (limit * 0.4));
+        int genreQuota = Math.max(1, (int) (limit * 0.3));
+
+        RecommendationRequest personalizedReq = RecommendationRequest.builder()
+                .strategy(RecommendationStrategy.USER_PERSONALIZED)
+                .lastfmUsername(username)
+                .period("3month")
+                .limit(personalizedQuota)
+                .build();
+
+        // Run all three sub-strategies concurrently
+        var nowFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return nowListeningStrategy.getRecommendations(request, nowListeningQuota);
+            } catch (Exception e) {
+                log.warn("Now Listening sub-strategy failed in Hybrid: {}", e.getMessage());
+                return Collections.<Recommendation>emptyList();
+            }
+        });
+
+        var userFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return userPersonalizedStrategy.getRecommendations(personalizedReq, personalizedQuota);
+            } catch (Exception e) {
+                log.warn("User Personalized sub-strategy failed in Hybrid: {}", e.getMessage());
+                return Collections.<Recommendation>emptyList();
+            }
+        });
+
+        var genreFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return genreBasedStrategy.getRecommendations(request, genreQuota);
+            } catch (Exception e) {
+                log.warn("Genre Based sub-strategy failed in Hybrid: {}", e.getMessage());
+                return Collections.<Recommendation>emptyList();
+            }
+        });
+
+        CompletableFuture.allOf(nowFuture, userFuture, genreFuture).join();
+
+        List<Recommendation> nowRecs = nowFuture.join();
         for (Recommendation r : nowRecs) {
             if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
                 all.add(r);
@@ -48,14 +89,7 @@ public class HybridStrategy extends AbstractRecommendationStrategy {
         }
         log.info("Hybrid: {} recs from Now Listening", all.size());
 
-        int personalizedQuota = Math.max(1, (int) (limit * 0.35));
-        RecommendationRequest personalizedReq = RecommendationRequest.builder()
-                .strategy(RecommendationStrategy.USER_PERSONALIZED)
-                .lastfmUsername(username)
-                .period("3month")
-                .limit(personalizedQuota)
-                .build();
-        List<Recommendation> userRecs = userPersonalizedStrategy.getRecommendations(personalizedReq, personalizedQuota);
+        List<Recommendation> userRecs = userFuture.join();
         for (Recommendation r : userRecs) {
             if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
                 all.add(r);
@@ -63,16 +97,13 @@ public class HybridStrategy extends AbstractRecommendationStrategy {
         }
         log.info("Hybrid: {} total after User Personalized", all.size());
 
-        int genreQuota = limit - all.size();
-        if (genreQuota > 0) {
-            List<Recommendation> genreRecs = genreBasedStrategy.getRecommendations(request, genreQuota);
-            for (Recommendation r : genreRecs) {
-                if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
-                    all.add(r);
-                }
+        List<Recommendation> genreRecs = genreFuture.join();
+        for (Recommendation r : genreRecs) {
+            if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
+                all.add(r);
             }
-            log.info("Hybrid: {} total after Genre Based", all.size());
         }
+        log.info("Hybrid: {} total after Genre Based", all.size());
 
         return rankAndLimit(all, limit);
     }

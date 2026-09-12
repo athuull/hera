@@ -25,7 +25,40 @@ public class LastFmClient {
     @Value("${lastfm.format}")
     private String format;
 
+    private static class CacheEntry {
+        final JsonNode data;
+        final long expiresAt;
+        CacheEntry(JsonNode data, long ttlMs) {
+            this.data = data;
+            this.expiresAt = System.currentTimeMillis() + ttlMs;
+        }
+        boolean isValid() {
+            return System.currentTimeMillis() < expiresAt;
+        }
+    }
+
+    private final Map<String, CacheEntry> cache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private long getTtlForMethod(String method) {
+        if (method.startsWith("artist.") || method.startsWith("tag.")) {
+            return 3600_000L; // 1 hour for artist/tag metadata
+        }
+        if (method.startsWith("user.getTop")) {
+            return 300_000L; // 5 minutes for user top charts
+        }
+        return 0L;
+    }
+
     public JsonNode get(String method, Map<String, String> params) {
+        long ttl = getTtlForMethod(method);
+        String cacheKey = (ttl > 0) ? (method + ":" + (params != null ? params.toString() : "")) : null;
+        if (cacheKey != null) {
+            CacheEntry entry = cache.get(cacheKey);
+            if (entry != null && entry.isValid()) {
+                return entry.data;
+            }
+        }
+
         String apiKey = settingsService.getSettings().getLastfmApiKey();
         UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(apiRoot)
                 .queryParam("method", method)
@@ -43,6 +76,11 @@ public class LastFmClient {
             String msg = body.has("message") ? body.get("message").asText() : "Unknown";
             throw new RuntimeException("Last.fm error [" + code + "]: " + msg);
         }
+
+        if (cacheKey != null) {
+            cache.put(cacheKey, new CacheEntry(body, ttl));
+        }
+
         return body;
     }
 
