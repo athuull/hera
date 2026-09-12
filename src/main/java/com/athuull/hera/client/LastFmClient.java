@@ -44,8 +44,42 @@ public class LastFmClient {
     private final java.util.concurrent.atomic.AtomicLong networkCalls = new java.util.concurrent.atomic.AtomicLong(0);
     private final java.util.concurrent.atomic.AtomicLong cacheHits = new java.util.concurrent.atomic.AtomicLong(0);
 
-    // Limit concurrent requests to Last.fm to 5 to strictly respect Last.fm TOS rate limits
-    private final java.util.concurrent.Semaphore rateLimiter = new java.util.concurrent.Semaphore(5);
+    // Bulletproof 5 requests per second token bucket rate limiter conforming to Last.fm TOS
+    private static class TokenBucketRateLimiter {
+        private final int maxTokens = 5;
+        private double tokens = 5.0;
+        private long lastRefillTime = System.currentTimeMillis();
+
+        public synchronized void acquire() {
+            while (true) {
+                refill();
+                if (tokens >= 1.0) {
+                    tokens -= 1.0;
+                    return;
+                }
+                double needed = 1.0 - tokens;
+                long waitMs = Math.max(50, (long) Math.ceil((needed / 5.0) * 1000.0));
+                try {
+                    wait(waitMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while waiting for Last.fm rate limiter", e);
+                }
+            }
+        }
+
+        private void refill() {
+            long now = System.currentTimeMillis();
+            long elapsed = now - lastRefillTime;
+            if (elapsed > 0) {
+                double newTokens = (elapsed * 5.0) / 1000.0;
+                tokens = Math.min(maxTokens, tokens + newTokens);
+                lastRefillTime = now;
+            }
+        }
+    }
+
+    private final TokenBucketRateLimiter rateLimiter = new TokenBucketRateLimiter();
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LastFmClient.class);
 
@@ -86,9 +120,6 @@ public class LastFmClient {
             }
         }
 
-        long reqNum = networkCalls.incrementAndGet();
-        log.info("Last.fm API request #{} -> method: {}", reqNum, method);
-
         String apiKey = settingsService.getSettings().getLastfmApiKey();
         UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(apiRoot)
                 .queryParam("method", method)
@@ -97,33 +128,45 @@ public class LastFmClient {
 
         if (params != null) params.forEach(builder::queryParam);
 
-        try {
+        int maxRetries = 2;
+        int attempt = 0;
+        while (true) {
+            attempt++;
             rateLimiter.acquire();
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while waiting for Last.fm rate limiter", ie);
-        }
 
-        ResponseEntity<JsonNode> response;
-        try {
-            response = restTemplate.getForEntity(builder.build().toUriString(), JsonNode.class);
-        } finally {
-            rateLimiter.release();
-        }
-        JsonNode body = response.getBody();
+            long reqNum = networkCalls.incrementAndGet();
+            log.info("Last.fm API request #{} -> method: {}", reqNum, method);
 
-        if (body == null) throw new RuntimeException("Empty response from Last.fm for method: " + method);
-        if (body.has("error")) {
-            int code = body.get("error").asInt();
-            String msg = body.has("message") ? body.get("message").asText() : "Unknown";
-            throw new RuntimeException("Last.fm error [" + code + "]: " + msg);
-        }
+            ResponseEntity<JsonNode> response;
+            try {
+                response = restTemplate.getForEntity(builder.build().toUriString(), JsonNode.class);
+            } catch (Exception ex) {
+                if (attempt <= maxRetries) {
+                    log.warn("Network error during Last.fm request (attempt {}/{}): {}. Retrying in 1.5s...", attempt, maxRetries, ex.getMessage());
+                    try { Thread.sleep(1500); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                    continue;
+                }
+                throw ex;
+            }
 
-        if (cacheKey != null) {
-            cache.put(cacheKey, new CacheEntry(body, ttl));
-        }
+            JsonNode body = response.getBody();
+            if (body == null) throw new RuntimeException("Empty response from Last.fm for method: " + method);
+            if (body.has("error")) {
+                int code = body.get("error").asInt();
+                String msg = body.has("message") ? body.get("message").asText() : "Unknown";
+                if (code == 29 && attempt <= maxRetries) { // Code 29: Rate limit exceeded
+                    log.warn("Last.fm rate limit reached (code 29). Backing off 2s before retry {}/{}...", attempt, maxRetries);
+                    try { Thread.sleep(2000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                    continue;
+                }
+                throw new RuntimeException("Last.fm error [" + code + "]: " + msg);
+            }
 
-        return body;
+            if (cacheKey != null) {
+                cache.put(cacheKey, new CacheEntry(body, ttl));
+            }
+            return body;
+        }
     }
 
     public JsonNode get(String method) {
