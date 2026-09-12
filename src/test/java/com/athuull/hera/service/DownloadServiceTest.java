@@ -87,6 +87,13 @@ class DownloadServiceTest {
     }
 
     @Test
+    @DisplayName("isPlausibleMatch accepts minor spelling / typo difference like 'Rigamortis' vs 'Rigamortus'")
+    void testPlausibleMatchSpellingDifference() {
+        Track requested = new Track("Kendrick Lamar", "Rigamortis", null, null);
+        assertTrue(downloadService.isPlausibleMatch(requested, "Kendrick Lamar", "Rigamortus"));
+    }
+
+    @Test
     @DisplayName("isPlausibleMatch rejects completely different title")
     void testPlausibleMatchRejectsDifferentTitle() {
         Track requested = new Track("Tory Lanez", "Say It", null, null);

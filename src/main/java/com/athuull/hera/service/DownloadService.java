@@ -355,10 +355,7 @@ public class DownloadService {
     public boolean isPlausibleMatch(Track requested, String matchedArtist, String matchedTitle) {
         if (matchedTitle == null || matchedTitle.isBlank()) return false;
 
-        String reqTitle = cleanTitle(requested.getTitle());
-        String gotTitle = cleanTitle(matchedTitle);
-
-        boolean titleMatches = gotTitle.equals(reqTitle);
+        boolean titleMatches = isPlausibleTitleMatch(requested.getTitle(), matchedTitle);
         if (!titleMatches) return false;
 
         String reqArtist = cleanForComparison(requested.getArtist());
@@ -383,6 +380,65 @@ public class DownloadService {
         }
 
         return false;
+    }
+
+    public boolean isPlausibleTitleMatch(String reqTitle, String gotTitle) {
+        if (reqTitle == null || gotTitle == null || reqTitle.isBlank() || gotTitle.isBlank()) {
+            return false;
+        }
+        String cleanReq = cleanTitle(reqTitle);
+        String cleanGot = cleanTitle(gotTitle);
+
+        if (cleanReq.equals(cleanGot)) {
+            return true;
+        }
+
+        String normReq = cleanReq.replaceAll("[^\\p{L}\\p{N}]", "");
+        String normGot = cleanGot.replaceAll("[^\\p{L}\\p{N}]", "");
+        if (!normReq.isBlank() && normReq.equals(normGot)) {
+            return true;
+        }
+
+        // Typo / spelling variation tolerance (e.g. "rigamortis" vs "rigamortus")
+        int len = Math.max(normReq.length(), normGot.length());
+        if (len >= 5) {
+            int maxAllowedDistance = (len >= 10) ? 2 : 1;
+            int dist = levenshteinDistance(normReq, normGot);
+            if (dist <= maxAllowedDistance) {
+                double similarity = 1.0 - ((double) dist / len);
+                if (similarity >= 0.80) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public static int levenshteinDistance(String a, String b) {
+        if (a == null) a = "";
+        if (b == null) b = "";
+        int lenA = a.length();
+        int lenB = b.length();
+        int[] prev = new int[lenB + 1];
+        int[] curr = new int[lenB + 1];
+        for (int j = 0; j <= lenB; j++) {
+            prev[j] = j;
+        }
+        for (int i = 1; i <= lenA; i++) {
+            curr[0] = i;
+            for (int j = 1; j <= lenB; j++) {
+                int cost = (a.charAt(i - 1) == b.charAt(j - 1)) ? 0 : 1;
+                curr[j] = Math.min(
+                    Math.min(curr[j - 1] + 1, prev[j] + 1),
+                    prev[j - 1] + cost
+                );
+            }
+            int[] temp = prev;
+            prev = curr;
+            curr = temp;
+        }
+        return prev[lenB];
     }
 
     String stripParenthesesAndBrackets(String input) {
