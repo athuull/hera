@@ -40,21 +40,26 @@ public class HybridStrategy extends AbstractRecommendationStrategy {
         List<Recommendation> all = new ArrayList<>();
         Set<String> seen = new HashSet<>();
 
+        // Target blend quotas
         int nowListeningQuota = Math.max(1, (int) (limit * 0.4));
         int personalizedQuota = Math.max(1, (int) (limit * 0.4));
-        int genreQuota = Math.max(1, (int) (limit * 0.3));
+        int genreQuota = Math.max(1, (int) (limit * 0.2));
+
+        // Request a full, generous candidate pool from each sub-strategy
+        // so that deduplication never starves the final result
+        int candidatePoolSize = Math.max(limit, 20);
 
         RecommendationRequest personalizedReq = RecommendationRequest.builder()
                 .strategy(RecommendationStrategy.USER_PERSONALIZED)
                 .lastfmUsername(username)
                 .period("3month")
-                .limit(personalizedQuota)
+                .limit(candidatePoolSize)
                 .build();
 
         // Run all three sub-strategies concurrently
         var nowFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return nowListeningStrategy.getRecommendations(request, nowListeningQuota);
+                return nowListeningStrategy.getRecommendations(request, candidatePoolSize);
             } catch (Exception e) {
                 log.warn("Now Listening sub-strategy failed in Hybrid: {}", e.getMessage());
                 return Collections.<Recommendation>emptyList();
@@ -63,7 +68,7 @@ public class HybridStrategy extends AbstractRecommendationStrategy {
 
         var userFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return userPersonalizedStrategy.getRecommendations(personalizedReq, personalizedQuota);
+                return userPersonalizedStrategy.getRecommendations(personalizedReq, candidatePoolSize);
             } catch (Exception e) {
                 log.warn("User Personalized sub-strategy failed in Hybrid: {}", e.getMessage());
                 return Collections.<Recommendation>emptyList();
@@ -72,7 +77,7 @@ public class HybridStrategy extends AbstractRecommendationStrategy {
 
         var genreFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return genreBasedStrategy.getRecommendations(request, genreQuota);
+                return genreBasedStrategy.getRecommendations(request, candidatePoolSize);
             } catch (Exception e) {
                 log.warn("Genre Based sub-strategy failed in Hybrid: {}", e.getMessage());
                 return Collections.<Recommendation>emptyList();
@@ -82,29 +87,54 @@ public class HybridStrategy extends AbstractRecommendationStrategy {
         CompletableFuture.allOf(nowFuture, userFuture, genreFuture).join();
 
         List<Recommendation> nowRecs = nowFuture.join();
-        for (Recommendation r : nowRecs) {
-            if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
-                all.add(r);
-            }
-        }
-        log.info("Hybrid: {} recs from Now Listening", all.size());
-
         List<Recommendation> userRecs = userFuture.join();
-        for (Recommendation r : userRecs) {
-            if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
-                all.add(r);
-            }
-        }
-        log.info("Hybrid: {} total after User Personalized", all.size());
-
         List<Recommendation> genreRecs = genreFuture.join();
-        for (Recommendation r : genreRecs) {
+
+        // 1. Primary pass: Add up to each category's target quota
+        int nowAdded = 0;
+        for (Recommendation r : nowRecs) {
+            if (nowAdded >= nowListeningQuota) break;
             if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
                 all.add(r);
+                nowAdded++;
             }
         }
-        log.info("Hybrid: {} total after Genre Based", all.size());
 
+        int userAdded = 0;
+        for (Recommendation r : userRecs) {
+            if (userAdded >= personalizedQuota) break;
+            if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
+                all.add(r);
+                userAdded++;
+            }
+        }
+
+        int genreAdded = 0;
+        for (Recommendation r : genreRecs) {
+            if (genreAdded >= genreQuota) break;
+            if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
+                all.add(r);
+                genreAdded++;
+            }
+        }
+
+        // 2. Backfill pass: If deduplication dropped any quota slots,
+        // backfill from remaining candidates to ensure 100% of 'limit' is met!
+        if (all.size() < limit) {
+            List<Recommendation> remaining = new ArrayList<>();
+            remaining.addAll(userRecs);
+            remaining.addAll(nowRecs);
+            remaining.addAll(genreRecs);
+
+            for (Recommendation r : remaining) {
+                if (all.size() >= limit) break;
+                if (r.getTrack() != null && seen.add(r.getTrack().dedupeKey())) {
+                    all.add(r);
+                }
+            }
+        }
+
+        log.info("Hybrid: returning {} recommendations (requested limit: {})", all.size(), limit);
         return rankAndLimit(all, limit);
     }
 }

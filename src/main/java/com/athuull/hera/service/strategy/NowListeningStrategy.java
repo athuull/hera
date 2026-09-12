@@ -33,7 +33,7 @@ public class NowListeningStrategy extends AbstractRecommendationStrategy {
         Set<String> seen = new HashSet<>();
 
         try {
-            int recentCount = Math.min(6, Math.max(3, limit / 2));
+            int recentCount = Math.min(8, Math.max(5, (limit / 2) + 1));
             JsonNode recentJson = lastFm.userGetRecentTracks(username, recentCount);
             JsonNode recentTracks = recentJson.path("recenttracks").path("track");
 

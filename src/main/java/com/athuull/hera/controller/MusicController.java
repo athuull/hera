@@ -26,6 +26,7 @@ public class MusicController {
     private final FormatCleanupService formatCleanupService;
     private final SettingsService settingsService;
     private final HistoryService historyService;
+    private final com.athuull.hera.client.LastFmClient lastFmClient;
     private final TaskExecutor taskExecutor;
     private final com.fasterxml.jackson.databind.ObjectMapper mapper;
 
@@ -34,6 +35,7 @@ public class MusicController {
                            RecommendationService recommendationService, DowntifyClient downtifyClient,
                            FormatCleanupService formatCleanupService, SettingsService settingsService,
                            HistoryService historyService,
+                           com.athuull.hera.client.LastFmClient lastFmClient,
                            @Qualifier("heraTaskExecutor") TaskExecutor taskExecutor,
                            com.fasterxml.jackson.databind.ObjectMapper mapper) {
         this.orchestrator = orchestrator;
@@ -43,6 +45,7 @@ public class MusicController {
         this.formatCleanupService = formatCleanupService;
         this.settingsService = settingsService;
         this.historyService = historyService;
+        this.lastFmClient = lastFmClient;
         this.taskExecutor = taskExecutor;
         this.mapper = mapper != null ? mapper : new com.fasterxml.jackson.databind.ObjectMapper();
     }
@@ -223,5 +226,12 @@ public class MusicController {
     public ResponseEntity<Map<String, Object>> clearHistory() {
         historyService.clear();
         return ResponseEntity.ok(Map.of("cleared", true));
+    }
+
+    // ─── Last.fm API Tracking & Stats ───
+
+    @GetMapping("/lastfm/stats")
+    public ResponseEntity<Map<String, Object>> getLastFmStats() {
+        return ResponseEntity.ok(lastFmClient.getStats());
     }
 }

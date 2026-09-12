@@ -38,7 +38,7 @@ public class UserPersonalizedStrategy extends AbstractRecommendationStrategy {
         log.info("Loaded {} recently played tracks for dedup", recentlyPlayed.size());
 
         try {
-            int topArtistCount = Math.min(6, Math.max(4, (int) Math.ceil(limit / 3.0)));
+            int topArtistCount = Math.min(8, Math.max(5, (int) Math.ceil(limit / 3.0)));
             JsonNode topArtists = lastFm.userGetTopArtists(username, period, topArtistCount);
             JsonNode artistNodes = topArtists.path("topartists").path("artist");
             if (!artistNodes.isArray()) return Collections.emptyList();
@@ -52,7 +52,7 @@ public class UserPersonalizedStrategy extends AbstractRecommendationStrategy {
                 artistFutures.add(CompletableFuture.supplyAsync(() -> {
                     List<Recommendation> artistRecs = new ArrayList<>();
                     try {
-                        JsonNode similar = lastFm.artistGetSimilar(artist, 3);
+                        JsonNode similar = lastFm.artistGetSimilar(artist, 4);
                         JsonNode matches = similar.path("similarartists").path("artist");
 
                         if (matches.isArray()) {
