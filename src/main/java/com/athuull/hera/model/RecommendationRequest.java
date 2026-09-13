@@ -7,6 +7,9 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+/**
+ * Encapsulates the user input parameters for recommendation discovery across all strategies.
+ */
 @Data
 @Builder
 @NoArgsConstructor

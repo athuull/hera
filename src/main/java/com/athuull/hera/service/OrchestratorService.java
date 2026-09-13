@@ -24,6 +24,20 @@ import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 
+/**
+ * Coordinates end-to-end scheduled and manual music pipelines.
+ * <p>
+ * <b>Key Responsibilities:</b>
+ * <ul>
+ *   <li><b>Dynamic Cron Rescheduling:</b> Allows users to update the cron expression and timezone
+ *       at runtime via the Web UI. It cancels the active {@link ScheduledFuture} and registers
+ *       a new {@link CronTrigger} on {@link TaskScheduler} without requiring an application restart.</li>
+ *   <li><b>Application Lifecycle:</b> Listens to {@link ApplicationReadyEvent} to initialize Downtify settings,
+ *       bind the cron scheduler, and trigger cache pre-warming on startup.</li>
+ *   <li><b>Pipeline Execution:</b> Fetches daily recommendations from config, prepares batches,
+ *       submits them to {@link DownloadService}, and logs completion history.</li>
+ * </ul>
+ */
 @Service
 public class OrchestratorService implements ApplicationRunner {
 

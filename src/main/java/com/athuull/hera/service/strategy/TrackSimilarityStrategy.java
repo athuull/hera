@@ -11,6 +11,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.*;
 
+/**
+ * Discovers tracks musically similar to a specific seed song (artist + track title).
+ * Queries {@code track.getSimilar} directly on Last.fm.
+ */
 @Component
 public class TrackSimilarityStrategy extends AbstractRecommendationStrategy {
 

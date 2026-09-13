@@ -4,6 +4,9 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+/**
+ * Strongly typed configuration properties mapped from {@code application.yml} under the {@code downtify} prefix.
+ */
 @Component
 @ConfigurationProperties(prefix = "downtify")
 @Data

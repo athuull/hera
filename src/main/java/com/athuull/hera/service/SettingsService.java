@@ -12,6 +12,13 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
 
+/**
+ * Manages persistence and runtime updates of application settings (JSON storage).
+ * <p>
+ * Supports environment variable fallbacks (e.g. from Docker environment variables)
+ * merged with file-based persistence ({@code settings.json}).
+ * </p>
+ */
 @Service
 public class SettingsService {
 

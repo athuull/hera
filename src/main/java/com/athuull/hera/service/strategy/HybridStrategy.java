@@ -11,6 +11,20 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Hybrid recommendation strategy combining multiple sub-strategies in parallel.
+ * <p>
+ * <b>Key Concepts:</b>
+ * <ul>
+ *   <li><b>Concurrent Fan-Out:</b> Concurrently evaluates {@link NowListeningStrategy} (40% quota),
+ *       {@link UserPersonalizedStrategy} (40% quota), and {@link GenreBasedStrategy} (20% quota)
+ *       using {@link CompletableFuture}.</li>
+ *   <li><b>Lazy Injection:</b> Uses Spring's {@code @Lazy} annotation to break circular dependency
+ *       loops during bean initialization.</li>
+ *   <li><b>Candidate Pooling & Backfill:</b> Evaluates candidate pools and auto-backfills from remaining
+ *       candidates if library deduplication exhausts one category's target quota.</li>
+ * </ul>
+ */
 @Component
 public class HybridStrategy extends AbstractRecommendationStrategy {
 

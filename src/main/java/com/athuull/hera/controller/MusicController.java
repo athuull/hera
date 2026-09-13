@@ -15,6 +15,17 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
+/**
+ * Main Spring MVC REST Controller exposing Hera's public API to the Web UI.
+ * <p>
+ * Endpoints encompass:
+ * <ul>
+ *   <li><b>Recommendation Discovery:</b> Endpoints for Personalized, Hybrid, Now-Listening, Genre, and Artist/Track searches.</li>
+ *   <li><b>Downloads & Queue:</b> Endpoints to submit downloads by track metadata or YouTube/Spotify URL, and inspect queue.</li>
+ *   <li><b>Settings & Scheduling:</b> Endpoints to view/update settings, manage cron schedules, and trigger runs.</li>
+ *   <li><b>Audit & Telemetry:</b> Endpoints for download history, format cleanup, and Last.fm API statistics.</li>
+ * </ul>
+ */
 @RestController
 @RequestMapping("/api")
 public class MusicController {

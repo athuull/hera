@@ -4,6 +4,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Canonical domain model representing a music track.
+ * <p>
+ * Contains normalization algorithms ({@link #cleanArtist(String)}, {@link #cleanTitle(String)})
+ * that strip bracketed text, featured artists, and punctuation across all Unicode alphabets
+ * to produce canonical {@link #dedupeKey()} strings for robust deduplication.
+ * </p>
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

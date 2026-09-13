@@ -13,6 +13,18 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Derives the user's top musical genres by inspecting tags of their favorite artists,
+ * then samples top tracks from those genres.
+ * <p>
+ * <b>Algorithm:</b>
+ * <ol>
+ *   <li>Fetches the user's top artists over recent months.</li>
+ *   <li>Queries {@code artist.getTopTags} for each artist concurrently, scoring tags weighted by play count.</li>
+ *   <li>Filters out noise tags (e.g. "seen live", "favorites") and selects the top 3 dominant genres.</li>
+ *   <li>Queries {@code tag.getTopTracks} for each dominant genre to discover tracks.</li>
+ * </ol>
+ */
 @Component
 public class GenreBasedStrategy extends AbstractRecommendationStrategy {
 

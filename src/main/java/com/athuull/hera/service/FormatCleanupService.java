@@ -15,6 +15,10 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+/**
+ * Housekeeping service that purges obsolete intermediate files (such as raw .webm downloads)
+ * left behind after conversion to high-quality MP3/FLAC.
+ */
 @Service
 public class FormatCleanupService {
 

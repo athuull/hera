@@ -12,6 +12,13 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * WebSocket handler that streams real-time download progress and logs to browser clients.
+ * <p>
+ * Wraps sessions with {@link ConcurrentWebSocketSessionDecorator} to buffer outbound messages
+ * and prevent slow network clients from blocking the backend broadcasting thread.
+ * </p>
+ */
 @Component
 public class ProgressWebSocketHandler extends TextWebSocketHandler {
 

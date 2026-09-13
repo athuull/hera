@@ -13,6 +13,16 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Client-side WebSocket connection to the Downtify backend.
+ * <p>
+ * <b>Architecture:</b>
+ * Acts as a bridge. Connects via {@link StandardWebSocketClient} to Downtify's internal websocket feed,
+ * intercepts live download progress events, and re-broadcasts them to connected browser clients
+ * via {@link ProgressWebSocketHandler}.
+ * Uses a periodic {@link Scheduled} heartbeat task to automatically reconnect if Downtify restarts.
+ * </p>
+ */
 @Component
 public class DowntifyWebSocketHandler extends TextWebSocketHandler {
 

@@ -10,6 +10,19 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+/**
+ * Service responsible for preventing duplicate song recommendations and redundant downloads.
+ * <p>
+ * <b>Multi-Tier Deduplication Strategy:</b>
+ * <ol>
+ *   <li><b>Primary Key Match:</b> Exact canonical comparison of normalized {@code artist - cleanTitle}.</li>
+ *   <li><b>Collaborative Multi-Artist Variations:</b> Parses out featured artists (e.g. "feat.", "with", "&", "x")
+ *       and checks all permutations against the downloaded library.</li>
+ *   <li><b>Distinctive Title Index:</b> Strips leading track numbers, path separators, and audio extensions,
+ *       matching distinctive non-generic song titles across the library.</li>
+ *   <li><b>Offline Circuit Breaker:</b> Avoids repeated blocking timeouts when Downtify is unreachable.</li>
+ * </ol>
+ */
 @Service
 public class DeduplicationService {
 

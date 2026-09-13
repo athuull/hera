@@ -25,31 +25,56 @@ public class LastFmClient {
     @Value("${lastfm.format}")
     private String format;
 
+    /**
+     * In-memory cache entry holding the parsed JSON response and its expiration timestamp.
+     */
     private static class CacheEntry {
         final JsonNode data;
         final long expiresAt;
+
         CacheEntry(JsonNode data, long ttlMs) {
             this.data = data;
             this.expiresAt = System.currentTimeMillis() + ttlMs;
         }
+
+        /**
+         * Checks if this cache entry is still within its validity window.
+         *
+         * @return true if the entry has not yet expired.
+         */
         boolean isValid() {
             return System.currentTimeMillis() < expiresAt;
         }
     }
 
+    // Thread-safe in-memory cache mapping method+params to CacheEntry
     private final Map<String, CacheEntry> cache = new java.util.concurrent.ConcurrentHashMap<>();
 
-    // Last.fm API request tracking & compliance metrics
+    // Real-time API request tracking metrics for Last.fm TOS compliance monitoring
     private final java.util.concurrent.atomic.AtomicLong totalRequests = new java.util.concurrent.atomic.AtomicLong(0);
     private final java.util.concurrent.atomic.AtomicLong networkCalls = new java.util.concurrent.atomic.AtomicLong(0);
     private final java.util.concurrent.atomic.AtomicLong cacheHits = new java.util.concurrent.atomic.AtomicLong(0);
 
-    // Bulletproof 5 requests per second token bucket rate limiter conforming to Last.fm TOS
+    /**
+     * Token Bucket Rate Limiter conforming strictly to Last.fm's documented limit
+     * of 5 requests per second per originating IP.
+     * <p>
+     * <b>Concept:</b>
+     * The bucket has a capacity of 5 tokens. Tokens refill continuously at a rate of
+     * 5.0 tokens per second (1 token every 200 milliseconds). Every outbound HTTP request
+     * must acquire exactly 1 token. If the bucket is empty, the thread sleeps precisely
+     * until the required fractional token has replenished.
+     * </p>
+     */
     private static class TokenBucketRateLimiter {
         private final int maxTokens = 5;
         private double tokens = 5.0;
         private long lastRefillTime = System.currentTimeMillis();
 
+        /**
+         * Blocks the calling thread until 1 token is available to consume.
+         * Uses Java monitor wait/notify semantics for minimal CPU overhead.
+         */
         public synchronized void acquire() {
             while (true) {
                 refill();
@@ -57,6 +82,7 @@ public class LastFmClient {
                     tokens -= 1.0;
                     return;
                 }
+                // Calculate exact wait time needed to accrue enough fractional tokens
                 double needed = 1.0 - tokens;
                 long waitMs = Math.max(50, (long) Math.ceil((needed / 5.0) * 1000.0));
                 try {
@@ -68,6 +94,9 @@ public class LastFmClient {
             }
         }
 
+        /**
+         * Calculates token replenishment based on elapsed wall-clock time since last check.
+         */
         private void refill() {
             long now = System.currentTimeMillis();
             long elapsed = now - lastRefillTime;
@@ -83,6 +112,14 @@ public class LastFmClient {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LastFmClient.class);
 
+    /**
+     * Defines tiered Cache Time-To-Live (TTL) based on data volatility:
+     * <ul>
+     *   <li>Metadata (artist, track, tag, chart info): 1 hour (rarely changes)</li>
+     *   <li>User top charts: 10 minutes (aggregations update slowly)</li>
+     *   <li>User recent scrobbles: 3 minutes (provides freshness while preventing rapid re-fetch loops)</li>
+     * </ul>
+     */
     private long getTtlForMethod(String method) {
         if (method.startsWith("artist.") || method.startsWith("tag.") || method.startsWith("track.") || method.startsWith("chart.")) {
             return 3600_000L; // 1 hour for music metadata (artist, track, tag, chart)

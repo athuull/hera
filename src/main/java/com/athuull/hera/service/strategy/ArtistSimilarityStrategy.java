@@ -10,6 +10,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.*;
 
+/**
+ * Discovers tracks similar to one or more user-provided seed artists.
+ * Queries {@code artist.getSimilar} for each seed and extracts top tracks for matching artists.
+ */
 @Component
 public class ArtistSimilarityStrategy extends AbstractRecommendationStrategy {
 

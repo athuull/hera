@@ -4,6 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Data transfer object encapsulating a single song recommendation, its origin, match score, and status.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

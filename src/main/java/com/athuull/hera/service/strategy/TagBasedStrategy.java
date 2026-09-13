@@ -11,6 +11,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.*;
 
+/**
+ * Explores top tracks for a specific genre or tag (e.g. "shoegaze", "synthwave", "post-punk").
+ * Queries {@code tag.getTopTracks} on Last.fm.
+ */
 @Component
 public class TagBasedStrategy extends AbstractRecommendationStrategy {
 

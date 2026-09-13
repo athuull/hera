@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Outcome of an audio download job processed by Downtify.
+ */
 @Data
 @Builder
 @NoArgsConstructor

@@ -10,6 +10,18 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
+/**
+ * Base template class for recommendation strategy providers.
+ * <p>
+ * Implements the <b>Template Method Pattern</b> by supplying common utilities:
+ * <ul>
+ *   <li><b>Logarithmic Popularity Weighting:</b> Multiplies match scores by {@code ln(1 + listeners)}
+ *       to balance niche similarity with track quality/popularity.</li>
+ *   <li><b>Recent Scrobbles Extraction:</b> Pre-loads recently played tracks from Last.fm
+ *       to ensure users are not recommended music they listened to hours earlier.</li>
+ *   <li><b>Safe Top Track Lookups:</b> Normalizes artist names and handles Last.fm API anomalies.</li>
+ * </ul>
+ */
 public abstract class AbstractRecommendationStrategy implements RecommendationStrategyProvider {
 
     protected final Logger log = LoggerFactory.getLogger(getClass());

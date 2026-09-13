@@ -17,6 +17,21 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * Manages the song search, fuzzy resolution, and download lifecycle.
+ * <p>
+ * <b>Key Responsibilities:</b>
+ * <ul>
+ *   <li><b>YouTube Music Resolution:</b> Searches Downtify/YouTube Music using multi-stage query fallbacks
+ *       (exact, artist+title, title only, stripped variations).</li>
+ *   <li><b>Fuzzy Verification (Levenshtein Distance):</b> Validates search results using string similarity
+ *       metrics to prevent downloading incorrect remixes, live versions, or wrong artists.</li>
+ *   <li><b>WebSocket Progress Streaming:</b> Broadcasts live percentage progress and stage notifications
+ *       to connected frontend clients via {@link ProgressWebSocketHandler}.</li>
+ *   <li><b>Locking & History:</b> Uses {@link ReentrantLock} to serialize concurrent download batches
+ *       and records outcomes to {@link HistoryService}.</li>
+ * </ul>
+ */
 @Service
 public class DownloadService {
 

@@ -12,6 +12,10 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Centralized exception interceptor converting uncaught exceptions into structured JSON HTTP error responses.
+ * Uses Spring's {@link RestControllerAdvice} and {@link ExceptionHandler} mechanism.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

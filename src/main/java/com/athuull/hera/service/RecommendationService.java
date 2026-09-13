@@ -14,6 +14,19 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Central orchestrator service for music recommendation generation.
+ * <p>
+ * <b>Key Architectural Responsibilities:</b>
+ * <ul>
+ *   <li><b>Strategy Dispatching:</b> Implements the Strategy Pattern by auto-wiring all
+ *       {@link RecommendationStrategyProvider} beans into a map keyed by {@link RecommendationStrategy}.</li>
+ *   <li><b>Background Cache Pre-Warming:</b> Asynchronously pre-populates the taste graph and retains
+ *       warmed recommendation candidates in memory to achieve sub-millisecond response times.</li>
+ *   <li><b>In-Flight Coordination:</b> Coordinates concurrent foreground user requests with background
+ *       warming tasks to eliminate redundant Last.fm API calls.</li>
+ * </ul>
+ */
 @Service
 public class RecommendationService {
 
@@ -29,6 +42,7 @@ public class RecommendationService {
                                   List<RecommendationStrategyProvider> providers) {
         this.settingsService = settingsService;
         this.dedupService = dedupService;
+        // Collect all strategy beans into a fast O(1) lookup table
         this.strategyMap = providers.stream()
                 .collect(Collectors.toMap(RecommendationStrategyProvider::getStrategy, Function.identity()));
     }
@@ -36,6 +50,13 @@ public class RecommendationService {
     private static final int MAX_SEARCH_LIMIT = 100;
     private static final int DEFAULT_SEARCH_LIMIT = 25;
 
+    /**
+     * Resolves recommendations for the incoming request by delegating to the appropriate strategy.
+     * Checks in-memory pre-warmed cache first to deliver instant responses when available.
+     *
+     * @param request the recommendation criteria (strategy, username, limit, etc.)
+     * @return a list of ranked and deduplicated recommendations
+     */
     public List<Recommendation> getRecommendations(RecommendationRequest request) {
         AppSettings appSettings = settingsService.getSettings();
 

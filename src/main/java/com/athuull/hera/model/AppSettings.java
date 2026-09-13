@@ -5,6 +5,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Application settings data model persisted to {@code settings.json}.
+ * Controls Last.fm credentials, download formatting, scheduling cron/timezone, and Downtify options.
+ */
 @Data
 @Builder
 @NoArgsConstructor

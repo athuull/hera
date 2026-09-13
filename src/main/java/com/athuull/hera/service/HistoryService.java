@@ -16,6 +16,10 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
+/**
+ * Manages the persistent download history audit log.
+ * Stores up to {@code MAX_ENTRIES} (200) completed/failed download events in {@code history.json}.
+ */
 @Service
 public class HistoryService {
 

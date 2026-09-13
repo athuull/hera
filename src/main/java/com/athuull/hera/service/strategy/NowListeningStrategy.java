@@ -12,6 +12,16 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Generates recommendations based on the user's most recent scrobbles on Last.fm.
+ * <p>
+ * <b>Algorithm:</b>
+ * <ol>
+ *   <li>Fetches the user's recent tracks via {@code user.getRecentTracks} (ignoring currently playing track).</li>
+ *   <li>Asynchronously queries track-level similarity ({@code track.getSimilar}) for each track.</li>
+ *   <li>Falls back gracefully to artist similarity ({@code artist.getSimilar}) if track-level data is sparse.</li>
+ * </ol>
+ */
 @Component
 public class NowListeningStrategy extends AbstractRecommendationStrategy {
 

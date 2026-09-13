@@ -10,6 +10,14 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
 
+/**
+ * Core Spring Configuration defining shared infrastructure beans:
+ * <ul>
+ *   <li><b>RestTemplate:</b> Configured with fast connect (3s) and read (5s) timeouts.</li>
+ *   <li><b>heraTaskExecutor:</b> Thread pool for background asynchronous operations (4–8 workers).</li>
+ *   <li><b>taskScheduler:</b> Dynamic scheduler for cron-based nightly pipeline execution.</li>
+ * </ul>
+ */
 @Configuration
 @EnableScheduling
 public class AppConfig {

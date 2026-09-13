@@ -6,6 +6,9 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+/**
+ * Request payload containing a list of tracks to be batched and downloaded.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

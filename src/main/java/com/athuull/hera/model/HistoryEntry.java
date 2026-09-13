@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Persistent record of a single download attempt (successful, failed, or skipped).
+ */
 @Data
 @Builder
 @NoArgsConstructor

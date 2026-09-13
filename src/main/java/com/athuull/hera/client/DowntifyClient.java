@@ -15,6 +15,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST client for communicating with the downstream Downtify audio download service.
+ * <p>
+ * Downtify is an external service responsible for searching YouTube Music, downloading audio tracks,
+ * embedding ID3 tags and cover art, and serving the library listing.
+ * </p>
+ */
 @Component
 @RequiredArgsConstructor
 public class DowntifyClient {
@@ -31,6 +38,9 @@ public class DowntifyClient {
         return UriComponentsBuilder.fromHttpUrl(url(path)).queryParam(key, val).build().toUriString();
     }
 
+    /**
+     * Searches YouTube Music via Downtify for matches given a search query string.
+     */
     public JsonNode searchSongs(String query) {
         return restTemplate.getForEntity(url("/api/songs/search", "query", query), JsonNode.class).getBody();
     }

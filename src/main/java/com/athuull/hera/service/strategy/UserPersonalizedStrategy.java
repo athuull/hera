@@ -11,6 +11,18 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Generates recommendations based on the user's all-time or periodical top artists on Last.fm.
+ * <p>
+ * <b>Algorithm:</b>
+ * <ol>
+ *   <li>Queries {@code user.getTopArtists} for the user's most scrobbled artists.</li>
+ *   <li>For each artist, queries {@code artist.getSimilar} to expand the taste graph.</li>
+ *   <li>Weights candidate tracks with a logarithmic boost based on the seed artist's play count:
+ *       {@code matchScore + log1p(playcount) / 10.0}.</li>
+ *   <li>Retrieves top tracks for matching similar artists in parallel via {@link CompletableFuture}.</li>
+ * </ol>
+ */
 @Component
 public class UserPersonalizedStrategy extends AbstractRecommendationStrategy {
 
