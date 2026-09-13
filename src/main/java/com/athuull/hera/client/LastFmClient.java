@@ -84,11 +84,14 @@ public class LastFmClient {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LastFmClient.class);
 
     private long getTtlForMethod(String method) {
-        if (method.startsWith("artist.") || method.startsWith("tag.")) {
-            return 3600_000L; // 1 hour for artist/tag metadata
+        if (method.startsWith("artist.") || method.startsWith("tag.") || method.startsWith("track.") || method.startsWith("chart.")) {
+            return 3600_000L; // 1 hour for music metadata (artist, track, tag, chart)
         }
         if (method.startsWith("user.getTop")) {
-            return 300_000L; // 5 minutes for user top charts
+            return 600_000L; // 10 minutes for user top charts
+        }
+        if (method.startsWith("user.getRecent")) {
+            return 180_000L; // 3 minutes for user recent scrobbles
         }
         return 0L;
     }

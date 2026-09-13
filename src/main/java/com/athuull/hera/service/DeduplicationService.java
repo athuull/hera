@@ -28,12 +28,20 @@ public class DeduplicationService {
         this.downtifyClient = downtifyClient;
     }
 
+    private volatile long lastDowntifyFailureTime = 0;
+
     @PostConstruct
     public void init() {
         refreshIndex();
     }
 
     public void refreshIndex() {
+        // If Downtify failed recently (< 60 seconds), don't block the request with another 15s timeout
+        if (System.currentTimeMillis() - lastDowntifyFailureTime < 60_000L) {
+            log.debug("Skipping deduplication refresh because Downtify was unreachable recently");
+            return;
+        }
+
         try {
             List<String> files = downtifyClient.listFiles();
             Set<String> keySet = new HashSet<>();
@@ -57,9 +65,11 @@ public class DeduplicationService {
             }
             this.knownFiles = Collections.unmodifiableSet(keySet);
             this.knownTitles = Collections.unmodifiableSet(titleSet);
+            this.lastDowntifyFailureTime = 0;
             log.info("Deduplication index refreshed: {} files known ({} dedupe keys, {} distinctive titles indexed)",
                     files.size(), knownFiles.size(), knownTitles.size());
         } catch (Exception e) {
+            this.lastDowntifyFailureTime = System.currentTimeMillis();
             log.warn("Could not refresh deduplication index: {}", e.getMessage());
         }
     }

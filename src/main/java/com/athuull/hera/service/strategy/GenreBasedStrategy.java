@@ -39,7 +39,7 @@ public class GenreBasedStrategy extends AbstractRecommendationStrategy {
         Map<String, Integer> genreScores = new ConcurrentHashMap<>();
 
         try {
-            int topArtistCount = Math.min(6, Math.max(4, limit / 3));
+            int topArtistCount = Math.min(5, Math.max(3, (int) Math.ceil(limit / 5.0)));
             JsonNode topArtists = lastFm.userGetTopArtists(username, "3month", topArtistCount);
             JsonNode artistNodes = topArtists.path("topartists").path("artist");
             if (!artistNodes.isArray() || artistNodes.isEmpty()) return Collections.emptyList();

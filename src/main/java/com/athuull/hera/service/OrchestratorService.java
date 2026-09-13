@@ -96,6 +96,10 @@ public class OrchestratorService implements ApplicationRunner {
             rescheduleCron(cron);
         }
         log.info("Ready. Scheduled downloads will run per cron schedule.");
+        String user = settingsService.getSettings() != null ? settingsService.getSettings().getLastfmUsername() : null;
+        if (user != null && !user.isBlank()) {
+            recommendationService.prewarmCacheAsync(user);
+        }
     }
 
     public void triggerScheduledPipelineAsync() {

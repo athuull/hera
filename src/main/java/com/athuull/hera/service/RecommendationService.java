@@ -61,6 +61,29 @@ public class RecommendationService {
 
         log.info("Generating recommendations via {} strategy for user '{}', limit={}", strategy, username, limit);
 
+        // If pre-warmed HYBRID recommendations exist for this user and are fresh (< 10 minutes), return INSTANTLY (<1ms)
+        if (strategy == RecommendationStrategy.HYBRID && limit <= 20
+                && prewarmedHybridRecs != null
+                && (username.isBlank() || prewarmedUser == null || username.equalsIgnoreCase(prewarmedUser))
+                && (System.currentTimeMillis() - prewarmedTimestamp < 600_000L)) {
+            log.info("Serving {} pre-warmed HYBRID recommendations directly from memory cache (<1ms)", limit);
+            return new ArrayList<>(prewarmedHybridRecs.subList(0, Math.min(limit, prewarmedHybridRecs.size())));
+        }
+
+        // If pre-warming is actively running for this user and HYBRID strategy is requested, await in-flight result briefly (max 4s)
+        if (strategy == RecommendationStrategy.HYBRID && limit <= 20 && isWarming.get() && warmingFuture != null) {
+            try {
+                log.info("HYBRID recommendation requested while pre-warmer is running — awaiting in-flight prewarm result (up to 4s)...");
+                List<Recommendation> recs = warmingFuture.get(4, java.util.concurrent.TimeUnit.SECONDS);
+                if (recs != null && !recs.isEmpty()) {
+                    log.info("Returning {} in-flight pre-warmed recommendations", recs.size());
+                    return new ArrayList<>(recs.subList(0, Math.min(limit, recs.size())));
+                }
+            } catch (Exception e) {
+                log.debug("In-flight prewarm wait elapsed or failed: {}", e.getMessage());
+            }
+        }
+
         // Refresh deduplication index once at the beginning of recommendation run
         dedupService.refreshIndex();
 
@@ -107,5 +130,46 @@ public class RecommendationService {
                 strategy == RecommendationStrategy.NOW_LISTENING ||
                 strategy == RecommendationStrategy.GENRE_BASED ||
                 strategy == RecommendationStrategy.HYBRID;
+    }
+
+    private final java.util.concurrent.atomic.AtomicBoolean isWarming = new java.util.concurrent.atomic.AtomicBoolean(false);
+    private volatile java.util.concurrent.CompletableFuture<List<Recommendation>> warmingFuture = null;
+    private volatile List<Recommendation> prewarmedHybridRecs = null;
+    private volatile String prewarmedUser = null;
+    private volatile long prewarmedTimestamp = 0;
+
+    public void prewarmCacheAsync(String username) {
+        if (username == null || username.isBlank()) return;
+        AppSettings s = settingsService.getSettings();
+        if (s == null || s.getLastfmApiKey() == null || s.getLastfmApiKey().isBlank()) return;
+
+        if (!isWarming.compareAndSet(false, true)) {
+            return;
+        }
+
+        warmingFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+            try {
+                log.info("Starting background cache pre-warming for user '{}'...", username);
+                RecommendationStrategyProvider hybrid = strategyMap.get(RecommendationStrategy.HYBRID);
+                if (hybrid != null) {
+                    RecommendationRequest req = RecommendationRequest.builder()
+                            .strategy(RecommendationStrategy.HYBRID)
+                            .lastfmUsername(username)
+                            .limit(20)
+                            .build();
+                    List<Recommendation> recs = hybrid.getRecommendations(req, 20);
+                    prewarmedHybridRecs = recs;
+                    prewarmedUser = username;
+                    prewarmedTimestamp = System.currentTimeMillis();
+                    log.info("Background cache pre-warming complete ({} recommendations primed and ready!).", recs.size());
+                    return recs;
+                }
+            } catch (Exception e) {
+                log.debug("Cache pre-warming finished with message: {}", e.getMessage());
+            } finally {
+                isWarming.set(false);
+            }
+            return Collections.emptyList();
+        });
     }
 }

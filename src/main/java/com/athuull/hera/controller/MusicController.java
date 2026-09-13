@@ -196,7 +196,11 @@ public class MusicController {
 
     @GetMapping("/settings")
     public ResponseEntity<AppSettings> getSettings() {
-        return ResponseEntity.ok(settingsService.getSettings());
+        AppSettings s = settingsService.getSettings();
+        if (s != null && s.getLastfmUsername() != null && !s.getLastfmUsername().isBlank()) {
+            recommendationService.prewarmCacheAsync(s.getLastfmUsername());
+        }
+        return ResponseEntity.ok(s);
     }
 
     @PostMapping("/settings")
@@ -204,6 +208,9 @@ public class MusicController {
         AppSettings updated = settingsService.updateSettings(newSettings);
         taskExecutor.execute(downloadService::configureDowntify);
         orchestrator.rescheduleCron(updated.getCronSchedule());
+        if (updated.getLastfmUsername() != null && !updated.getLastfmUsername().isBlank()) {
+            recommendationService.prewarmCacheAsync(updated.getLastfmUsername());
+        }
         return ResponseEntity.ok(updated);
     }
 
